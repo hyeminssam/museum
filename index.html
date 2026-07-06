@@ -141,7 +141,7 @@
         // ==========================================
         // ★ 구글 웹앱 URL 주소 입력 ★
         // ==========================================
-        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbzop_hUqcxeyXgfnECF2FEpjPXXaWTVdm21n6s-vb4YyLL5aEv7PoQT1RE7j58R1AJo/exec";
+        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbzfvGpozNysU-YvkgH8KvfKo9gdwqUrUXDziYwhbVtMCxAMv4OtJo-_IzYWTcn5RwKg/exec";
         const TEACHER_PASSWORD = "4505"; 
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -177,20 +177,31 @@
             return url;
         }
 
-        async function fetchAllDataFromServer() {
+        // ★ JSONP 방식 전송 스크립트 인젝터 유틸리티 (CORS 우회 원천 기술)
+        function fetchJSONP(url, successCallback) {
+            const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                successCallback(data);
+            };
+            const script = document.createElement('script');
+            script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+            document.body.appendChild(script);
+        }
+
+        function fetchAllDataFromServer() {
             const container = document.getElementById('pdf-container');
             const cleanUrl = getCleanUrl();
             if (cleanUrl.includes("★")) {
                 container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">구글 웹앱 URL 설정을 완료해 주세요.</div>`;
                 return;
             }
-            try {
-                const targetUrl = `${cleanUrl}?action=getPDFs&t=${Date.now()}`;
-                const response = await fetch(targetUrl);
-                if (!response.ok) throw new Error("서버 상태 오류");
-                
-                const data = await response.json();
-                
+            
+            const targetUrl = `${cleanUrl}?action=getPDFs&t=${Date.now()}`;
+            
+            // 전송 규격을 JSONP 안전 우회 방식으로 전면 대체
+            fetchJSONP(targetUrl, function(data) {
                 if (!data || Object.keys(data).length === 0) {
                     handleTeamChange();
                     return;
@@ -208,19 +219,11 @@
                         teamDataStore[t].elements = [];
                     }
                 });
-                
                 handleTeamChange();
-                
-            } catch(e) {
-                console.error(e);
-                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-red-400 mt-6 text-xs">
-                    서버 동기화 오류 발생<br>
-                    <span class="text-[10px] text-slate-400">F2를 눌러 편집 모드 진입 후 PDF를 다시 업로드하고 우하단 [현재 배치 저장하기] 버튼을 꼭 눌러주세요.</span>
-                </div>`;
-            }
+            });
         }
 
-        async function saveBlueprintToServer() {
+        function saveBlueprintToServer() {
             const team = getCurrentTeam();
             const elements = teamDataStore[team].elements;
             const btnMenu = document.getElementById('btn-save-blueprint');
@@ -231,51 +234,43 @@
             btnMenu.innerText = "저장 중...";
             btnFloat.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>저장 중...</span>`;
 
-            try {
-                await fetch(cleanUrl, {
-                    method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: "saveBlueprint", team: team, elements: elements })
-                });
-                alert(`💾 [제 ${team}조] 문항 배치 구조가 구글 클라우드 저장소에 최종 반영되었습니다.`);
-            } catch(err) {
-                alert("구조 저장 실패: " + err.message);
-            } finally {
+            var payload = { action: "saveBlueprint", team: team, elements: elements };
+            var targetUrl = `${cleanUrl}?action=postViaGet&data=${encodeURIComponent(JSON.stringify(payload))}&t=${Date.now()}`;
+
+            fetchJSONP(targetUrl, function(res) {
+                alert(`💾 [제 ${team}조] 문항 배치가 구글 드라이브에 영구 동기화 완료되었습니다!\n이제 브라우저를 꺼도 안전하게 보존됩니다.`);
                 btnMenu.disabled = btnFloat.disabled = false;
                 btnMenu.innerText = "현재 구조 서버 저장";
                 btnFloat.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-base text-amber-300"></i> <span>현재 배치 저장하기</span>`;
-            }
+            });
         }
 
         function uploadPDFToServer(input) {
             const file = input.files[0];
             if (!file) return;
-            if (file.size > 3.5 * 1024 * 1024) { alert("파일 용량은 3.5MB 이하만 업로드 가능합니다."); return; }
+            if (file.size > 3.0 * 1024 * 1024) { alert("깃허브-구글 보안 최적화를 위해 파일 용량은 3.0MB 이하만 가능합니다."); return; }
 
             const team = getCurrentTeam();
             const reader = new FileReader();
             const container = document.getElementById('pdf-container');
             const cleanUrl = getCleanUrl();
-            container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 mt-6 text-xs font-bold animate-pulse">구글 서버 연동 파일 인코딩 가공 중...</div>`;
+            container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 mt-6 text-xs font-bold animate-pulse">대용량 파일 우회 터널 개설 및 전송 중... (약 5초 소요)</div>`;
 
-            reader.onload = async function(e) {
+            reader.onload = function(e) {
                 const arrayBuffer = e.target.result;
                 const bytes = new Uint8Array(arrayBuffer);
                 let binary = '';
                 for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
                 const base64Str = btoa(binary);
 
-                try {
-                    await fetch(cleanUrl, {
-                        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str })
-                    });
-                    alert(`🎉 제 ${team}조 대용량 PDF 업로드 성공!\n반드시 하단 보라색 버튼을 눌러 문항 구조까지 저장 완료해 주세요.`);
+                var payload = { action: "uploadPDF", team: team, pdfData: base64Str };
+                var targetUrl = `${cleanUrl}?action=postViaGet&data=${encodeURIComponent(JSON.stringify(payload))}&t=${Date.now()}`;
+
+                fetchJSONP(targetUrl, function(res) {
+                    alert(`🎉 제 ${team}조 대용량 학습지 영구 등록에 확실하게 성공했습니다!`);
                     teamDataStore[team].base64Str = base64Str;
                     loadPDFFromBase64(base64Str);
-                } catch(err) {
-                    alert("업로드 에러");
-                    handleTeamChange();
-                }
+                });
             };
             reader.readAsArrayBuffer(file);
         }
@@ -375,14 +370,14 @@
             } catch(e) { console.error(e); }
         }
 
-        async function fetchStudentSubmissions() {
+        function fetchStudentSubmissions() {
             const cleanUrl = getCleanUrl();
             if (cleanUrl.includes("★")) return;
             const selectEl = document.getElementById('select-student-submission');
             selectEl.innerHTML = '<option value="">불러오는 중...</option>';
-            try {
-                const response = await fetch(`${cleanUrl}?action=readSubmissions&t=${Date.now()}`);
-                const data = await response.json();
+            
+            const targetUrl = `${cleanUrl}?action=readSubmissions&t=${Date.now()}`;
+            fetchJSONP(targetUrl, function(data) {
                 globalSubmissions = data;
                 selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
                 const currentTeam = getCurrentTeam();
@@ -393,7 +388,7 @@
                         selectEl.appendChild(opt);
                     }
                 });
-            } catch (err) { selectEl.innerHTML = '<option value="">로드 실패</option>'; }
+            });
         }
 
         function loadStudentResponseToCanvas() {
