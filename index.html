@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=3.0">
-    <title>국립중앙박물관 학습지 & 교사용 통합 채점 시스템</title>
+    <title> 국중박 학습지 & 교사용 통합 채점 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -11,8 +11,8 @@
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;500;700&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; -webkit-text-size-adjust: none; }
         .pdf-page-container { position: relative; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); background: white; border-radius: 0.5rem; overflow: hidden; display: block; clear: both; }
-        .overlay-element { position: absolute; border: 2px dashed #4f46e5; background: rgba(79, 70, 229, 0.05); cursor: move; box-sizing: border-box; }
-        .student-element { position: absolute; box-sizing: border-box; }
+        .overlay-element { position: absolute; border: 2px dashed #4f46e5; background: rgba(79, 70, 229, 0.1); cursor: move; box-sizing: border-box; z-index: 30; }
+        .student-element { position: absolute; box-sizing: border-box; z-index: 20; }
         .student-text { border: 1px solid #cbd5e1; background: rgba(255,255,255,0.95); border-radius: 0.25rem; padding: 4px; font-size: 14px; width:100%; height:100%; outline:none; }
         .student-text:focus { border-color:#4f46e5; background: #fff; }
         .student-textarea { border: 1px solid #cbd5e1; background: rgba(255,255,255,0.95); border-radius: 0.25rem; padding: 4px 6px; font-size: 13px; line-height: 1.3; width:100%; height:100%; resize:none; outline:none; }
@@ -20,7 +20,7 @@
         .student-canvas-container { position: relative; width: 100%; height: 100%; background: rgba(255,255,255,0.95); border: 1px solid #94a3b8; border-radius: 0.375rem; overflow: hidden; display: flex; flex-direction: column; }
         .canvas-toolbar { display: flex; flex-direction: column; background: #f8fafc; padding: 6px; border-bottom: 1px solid #cbd5e1; z-index: 5; shrink-0; gap: 4px; }
         .student-canvas { cursor: crosshair; flex-grow: 1; width: 100%; height: 100%; background: transparent; touch-action: none; }
-        .resize-handle { position: absolute; width: 14px; height: 14px; background: #4f46e5; right: -7px; bottom: -7px; cursor: se-resize; border-radius: 50%; z-index: 20; }
+        .resize-handle { position: absolute; width: 14px; height: 14px; background: #4f46e5; right: -7px; bottom: -7px; cursor: se-resize; border-radius: 50%; z-index: 40; }
         .pdf-scroller { width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; align-items: center; }
         .viewer-text { border: 1px solid #6366f1; background: #e0e7ff; color: #1e1b4b; font-weight: bold; border-radius: 0.25rem; padding: 4px; font-size: 14px; width:100%; height:100%; overflow: hidden; text-overflow: ellipsis; }
         .viewer-textarea { border: 1px solid #6366f1; background: #e0e7ff; color: #1e1b4b; font-weight: bold; border-radius: 0.25rem; padding: 4px 6px; font-size: 13px; line-height: 1.3; width:100%; height:100%; overflow-y:auto; resize:none; }
@@ -31,7 +31,7 @@
     <header class="bg-indigo-900 text-white px-4 py-3 shadow-md flex justify-between items-center z-10 shrink-0">
         <div class="flex items-center space-x-2">
             <i class="fa-solid fa-graduation-cap text-xl text-emerald-400"></i>
-            <h1 class="text-sm md:text-base font-bold tracking-tight">스마트 디지털 교사용 통합 학습 시스템</h1>
+            <h1 class="text-sm md:text-base font-bold tracking-tight">국립중앙박물관 학습지</h1>
         </div>
         <div class="flex items-center space-x-2">
             <span id="badge-mode" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500 text-white"><i class="fa-solid fa-user-graduate mr-1"></i>학생 모드</span>
@@ -246,29 +246,42 @@
                     await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
                     pageDiv.appendChild(canvas);
 
-                    var interactiveLayer = document.createElement('div'); interactiveLayer.className = 'absolute inset-0 z-10';
+                    // 클릭 수신 전 전용 인터랙티브 레이어 생성 및 최상단 정렬(z-index: 25)
+                    var interactiveLayer = document.createElement('div'); 
+                    interactiveLayer.className = 'absolute inset-0';
+                    interactiveLayer.style.zIndex = '25';
+                    interactiveLayer.style.cursor = 'crosshair';
+                    interactiveLayer.style.background = 'transparent';
                     
-                    // 서술형 및 그림판 툴 크기 변수 할당 오류 원천 수정한 이벤트 리스너
-                    interactiveLayer.addEventListener('mousedown', function(e) {
-                        if (currentMode !== 'teacher' || currentViewingStudentIndex !== null || e.target !== interactiveLayer) return;
-                        var rect = interactiveLayer.getBoundingClientRect();
+                    // 터치와 마우스 클릭을 모두 흡수하도록 이벤트 구조 전면 개편
+                    interactiveLayer.addEventListener('click', function(e) {
+                        if (currentMode !== 'teacher' || currentViewingStudentIndex !== null) return;
+                        
+                        var targetLayer = e.currentTarget;
+                        var rect = targetLayer.getBoundingClientRect();
+                        var clickX = e.clientX - rect.left;
+                        var clickY = e.clientY - rect.top;
+                        
                         var w = 140, h = 26; 
                         if (currentTool === 'textarea') { w = 200; h = 60; } 
                         else if (currentTool === 'multimedia') { w = 320; h = 240; }
                         
+                        var pNum = parseInt(targetLayer.parentNode.id.replace('page-container-', ''));
                         var team = getCurrentTeam();
+                        
                         teamDataStore[team].elements.push({ 
                             id: 'el-' + Date.now(), 
-                            page: pageNum, 
+                            page: pNum, 
                             type: currentTool, 
-                            left: ((e.clientX - rect.left) / rect.width) * 100, 
-                            top: ((e.clientY - rect.top) / rect.height) * 100, 
+                            left: (clickX / rect.width) * 100, 
+                            top: (clickY / rect.height) * 100, 
                             width: (w / rect.width) * 100, 
                             height: (h / rect.height) * 100, 
                             value: "" 
                         });
                         renderElements();
                     });
+                    
                     pageDiv.appendChild(interactiveLayer); container.appendChild(pageDiv);
                 }
                 renderElements();
@@ -310,13 +323,13 @@
             if(!teamDataStore[team] || !teamDataStore[team].elements) return;
 
             teamDataStore[team].elements.forEach(function(el) {
-                var layer = document.getElementById('page-container-' + el.page)?.querySelector('div:not(canvas)'); if (!layer) return;
+                var pageWrap = document.getElementById('page-container-' + el.page); if (!pageWrap) return;
                 var wrap = document.createElement('div'); wrap.style.left = el.left + '%'; wrap.style.top = el.top + '%'; wrap.style.width = el.width + '%'; wrap.style.height = el.height + '%';
 
                 if (currentMode === 'teacher' && !isViewingMode) {
                     wrap.className = 'overlay-element';
                     wrap.innerHTML = '<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/40">[' + (el.type === 'multimedia' ? '그림판' : el.type) + ']</div>' +
-                                      '<button onclick="deleteElement(\'' + el.id + '\')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button><div class="resize-handle"></div>';
+                                      '<button onclick="event.stopPropagation(); deleteElement(\'' + el.id + '\')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] z-50">×</button><div class="resize-handle"></div>';
                     setupDragAndResize(wrap, el);
                 } else {
                     wrap.className = 'student-element';
@@ -362,7 +375,7 @@
                         }
                     }
                 }
-                layer.appendChild(wrap);
+                pageWrap.appendChild(wrap);
             });
         }
 
@@ -394,7 +407,7 @@
                 function mouseUpHandler() { isDrag = isResize = false; document.removeEventListener('mousemove', mouseMoveHandler); document.removeEventListener('mouseup', mouseUpHandler); }
                 document.addEventListener('mousemove', mouseMoveHandler); document.addEventListener('mouseup', mouseUpHandler);
             }
-            wrap.addEventListener('mousedown', function(e) { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') { e.preventDefault(); handleStart(e.clientX, e.clientY, e.target); } });
+            wrap.addEventListener('mousedown', function(e) { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') { e.preventDefault(); e.stopPropagation(); handleStart(e.clientX, e.clientY, e.target); } });
         }
 
         function deleteElement(id) { var team = getCurrentTeam(); teamDataStore[team].elements = teamDataStore[team].elements.filter(function(el) { return el.id !== id; }); renderElements(); }
