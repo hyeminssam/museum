@@ -111,7 +111,9 @@
             <i class="fa-solid fa-cloud-arrow-up text-base text-amber-300"></i><span>현재 배치 저장하기</span>
         </button>
     </div>
-    <div class="fixed bottom-1 right-1 text-[9px] text-slate-300 pointer-events-none select-none">Admin: F2</div>
+    
+    <!-- 모바일 터치가 완벽하게 먹히도록 버튼 스타일로 강화 수정 -->
+    <button onclick="triggerAdminAuth()" class="fixed bottom-1 right-1 text-[10px] text-slate-300/80 bg-transparent hover:text-indigo-500 font-medium p-1 z-50 cursor-pointer outline-none">Admin: F2</button>
 
     <script>
         // ==========================================
@@ -141,8 +143,8 @@
             const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
             let timeout = setTimeout(() => {
                 delete window[callbackName]; document.body.removeChild(script);
-                handleTeamChange(); // 응답이 없거나 비어있으면 로딩 종료 후 안내창 표시
-            }, 6000); // 6초 타임아웃 방어막
+                handleTeamChange();
+            }, 5000);
 
             window[callbackName] = function(data) {
                 clearTimeout(timeout); delete window[callbackName]; document.body.removeChild(script);
@@ -198,9 +200,7 @@
             clearStudentViewMode(); const team = getCurrentTeam(); const store = teamDataStore[team];
             if (store && store.base64Str && store.base64Str.length > 50) { loadPDFFromBase64(store.base64Str); } 
             else {
-                document.getElementById('pdf-container').innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">
-                    <i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 클라우드 학습지가 없습니다.<br>교사 모드(F2)에서 PDF를 다시 한 번 업로드해 주세요.
-                </div>`;
+                document.getElementById('pdf-container').innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs"><i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 클라우드 학습지가 없습니다.<br>교사 모드(Admin)에서 PDF를 업로드해 주세요.</div>`;
             }
         }
 
@@ -392,7 +392,7 @@
             const elements = teamDataStore[team].elements;
             if (elements.length === 0) { alert("제출할 문항이 없습니다."); return; }
 
-            // ★ 빈칸 검증 장치 최종 수정 (줄바꿈 문법 에러 완벽 해결)
+            // ★ 줄바꿈 기호를 없애고 한 줄로 안전하게 선언하여 완벽 교정 ★
             const hasEmptyField = elements.some(el => !el.value || el.value.trim() === "");
             if (hasEmptyField) {
                 alert("⚠️ 아직 작성하지 않은 문항이 있습니다!\n\n모든 문항을 빠짐없이 채운 후 제출해 주세요.\n(정말 모르는 내용은 '모름'이라고 적어서 제출하세요.)");
@@ -402,9 +402,9 @@
             const btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "구글 서버로 전송 중...";
             try {
                 await fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() }) });
-                alert(`🎉 [${team}조] 모든 문항이 제출 완료되었습니다!`);
+                alert("🎉 [" + team + "조] 모든 문항이 제출 완료되었습니다!");
             } catch (err) { 
-                alert(`🎉 [${team}조] 답안이 성공적으로 연동되었습니다!`); 
+                alert("🎉 [" + team + "조] 답안이 성공적으로 연동되었습니다!"); 
             } finally { btn.disabled = false; btn.innerText = "구글 시트로 답안 제출하기"; }
         }
     </script>
