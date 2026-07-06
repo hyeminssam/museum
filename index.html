@@ -47,8 +47,10 @@
     </header>
 
     <div class="flex-grow flex flex-col lg:flex-row">
+        <!-- 설정 사이드바 -->
         <aside class="w-full lg:w-72 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 p-4 flex flex-col space-y-4 shrink-0">
             
+            <!-- 조 선택 메뉴 -->
             <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
                 <label class="block text-xs font-bold text-slate-700 mb-1.5"><i class="fa-solid fa-people-group mr-1 text-indigo-600"></i> 소속 조 선택</label>
                 <select id="select-team" onchange="handleTeamChange()" class="w-full px-2.5 py-1.5 border rounded-lg text-xs bg-white font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
@@ -59,9 +61,11 @@
                 </select>
             </div>
 
+            <!-- 선생님 패널 (F2로 진입) -->
             <div id="panel-teacher" class="hidden space-y-4 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
                 <div class="text-center font-bold text-xs text-indigo-800 border-b pb-1.5 mb-1">🔒 교사 전용 관리자 메뉴</div>
                 
+                <!-- 서버 업로드 도구 -->
                 <div class="bg-amber-50 p-2 rounded-lg border border-amber-200 shadow-inner space-y-1.5">
                     <label class="block text-[11px] font-bold text-amber-900"><i class="fa-solid fa-cloud-arrow-up mr-1 text-red-500"></i> ☁️ 원격 PDF 업로드</label>
                     <input type="file" id="upload-pdf-file" accept="application/pdf" onchange="uploadPDFToServer(this)" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
@@ -93,6 +97,7 @@
                 </div>
             </div>
 
+            <!-- 학생 정보 및 제출 패널 -->
             <div id="panel-student" class="space-y-3">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
@@ -112,6 +117,7 @@
             </div>
         </aside>
 
+        <!-- 메인 화면 도화지 -->
         <main class="flex-grow p-3 md:p-6 overflow-auto max-h-[calc(100vh-53px)] pdf-scroller relative">
             <div id="pdf-container" class="w-full flex flex-col items-center">
                 <div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-xs font-bold animate-pulse">
@@ -121,6 +127,7 @@
         </main>
     </div>
 
+    <!-- 우하단 플로팅 저장 버튼 -->
     <div id="floating-save-container" class="hidden fixed bottom-6 right-6 z-50">
         <button id="btn-floating-save" onclick="saveBlueprintToServer()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-3 rounded-full shadow-2xl flex items-center space-x-2 text-xs md:text-sm transition-all transform hover:scale-105 active:scale-95">
             <i class="fa-solid fa-cloud-arrow-up text-base text-amber-300"></i>
@@ -134,7 +141,7 @@
         // ==========================================
         // ★ 구글 웹앱 URL 주소 입력 ★
         // ==========================================
-        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbzAgfIZgxTr9rw7XL_FTLgRbj-40VU3FyZOwWXDhRVe9PqDE0bLgc29fH0UQdrziKKy/exec";
+        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbzop_hUqcxeyXgfnECF2FEpjPXXaWTVdm21n6s-vb4YyLL5aEv7PoQT1RE7j58R1AJo/exec";
         const TEACHER_PASSWORD = "4505"; 
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -180,11 +187,10 @@
             try {
                 const targetUrl = `${cleanUrl}?action=getPDFs&t=${Date.now()}`;
                 const response = await fetch(targetUrl);
-                if (!response.ok) throw new Error("서버 응답 상태 불량");
+                if (!response.ok) throw new Error("서버 상태 오류");
                 
                 const data = await response.json();
                 
-                // 데이터 완전 유실 및 안전 검증 예방 필터
                 if (!data || Object.keys(data).length === 0) {
                     handleTeamChange();
                     return;
@@ -194,7 +200,7 @@
                     if (data["pdf_team_" + t] && data["pdf_team_" + t].length > 50) {
                         teamDataStore[t].base64Str = data["pdf_team_" + t];
                     } else {
-                        teamDataStore[t].base64Str = ""; // 안전 초기화
+                        teamDataStore[t].base64Str = "";
                     }
                     if (data["blueprint_team_" + t]) {
                         teamDataStore[t].elements = data["blueprint_team_" + t];
@@ -206,10 +212,10 @@
                 handleTeamChange();
                 
             } catch(e) {
-                console.error("서버 호출 에러 발생:", e);
+                console.error(e);
                 container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-red-400 mt-6 text-xs">
-                    서버 동기화 실패: 데이터가 비어있거나 권한이 없습니다.<br>
-                    <span class="text-[10px] text-slate-400">교사 모드(F2)에서 PDF를 다시 업로드하고 [구조 서버 저장] 버튼을 꼭 눌러주세요.</span>
+                    서버 동기화 오류 발생<br>
+                    <span class="text-[10px] text-slate-400">F2를 눌러 편집 모드 진입 후 PDF를 다시 업로드하고 우하단 [현재 배치 저장하기] 버튼을 꼭 눌러주세요.</span>
                 </div>`;
             }
         }
@@ -230,7 +236,7 @@
                     method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: "saveBlueprint", team: team, elements: elements })
                 });
-                alert(`💾 [제 ${team}조] 문항 구조가 서버에 임시 전송되었습니다.\n반드시 웹앱을 변경하신 경우 '새 배포' 처리가 완료되어야 전원 연동됩니다.`);
+                alert(`💾 [제 ${team}조] 문항 배치 구조가 구글 클라우드 저장소에 최종 반영되었습니다.`);
             } catch(err) {
                 alert("구조 저장 실패: " + err.message);
             } finally {
@@ -249,7 +255,7 @@
             const reader = new FileReader();
             const container = document.getElementById('pdf-container');
             const cleanUrl = getCleanUrl();
-            container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 mt-6 text-xs font-bold animate-pulse">구글 클라우드로 PDF 데이터를 변환 및 업로드하고 있습니다...</div>`;
+            container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 mt-6 text-xs font-bold animate-pulse">구글 서버 연동 파일 인코딩 가공 중...</div>`;
 
             reader.onload = async function(e) {
                 const arrayBuffer = e.target.result;
@@ -263,11 +269,11 @@
                         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str })
                     });
-                    alert(`🎉 제 ${team}조 PDF 업로드 완료! 이제 문항을 배치하고 [현재 구조 서버 저장]을 누르세요.`);
+                    alert(`🎉 제 ${team}조 대용량 PDF 업로드 성공!\n반드시 하단 보라색 버튼을 눌러 문항 구조까지 저장 완료해 주세요.`);
                     teamDataStore[team].base64Str = base64Str;
                     loadPDFFromBase64(base64Str);
                 } catch(err) {
-                    alert("업로드 에러 발생");
+                    alert("업로드 에러");
                     handleTeamChange();
                 }
             };
