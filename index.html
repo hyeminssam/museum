@@ -100,7 +100,7 @@
         <main class="flex-grow p-3 md:p-6 overflow-auto max-h-[calc(100vh-53px)] pdf-scroller relative">
             <div id="pdf-container" class="w-full flex flex-col items-center">
                 <div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-xs font-bold animate-pulse">
-                    <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 구글 클라우드에서 기존 학습지 동기화 중...
+                    <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 구글 클라우드에서 학습지 불러오는 중...
                 </div>
             </div>
         </main>
@@ -118,7 +118,7 @@
         // ==========================================
         // ★ 구글 웹앱 URL 주소 입력 ★
         // ==========================================
-        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbyxZDn_uqpJd2j8Zw11VAfInA13yZi_c72HA__KJr3UwT2O167JNQVSYA-bJj4XfSfd/exec";
+        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbx65aKSJnWMhcUG6YCSMuaaaqRTSwaIbtjMOeRWZfy1fekiG3hS1mfm5pp0DccfD6Zw/exec";
         const TEACHER_PASSWORD = "4505"; 
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -143,7 +143,7 @@
             let timeout = setTimeout(() => {
                 delete window[callbackName]; document.body.removeChild(script);
                 handleTeamChange();
-            }, 8000);
+            }, 10000); // 통신 한계를 감안해 대기 시간을 10초로 최대로 늘림
 
             window[callbackName] = function(data) {
                 clearTimeout(timeout); delete window[callbackName]; document.body.removeChild(script);
@@ -157,7 +157,7 @@
         function fetchAllDataFromServer() {
             const cleanUrl = getCleanUrl();
             if (cleanUrl.includes("★")) return;
-            fetchJSONP(`${cleanUrl}?action=getPDFs&t=${Date.now()}`, function(data) {
+            fetchJSONP(cleanUrl + "?action=getPDFs&t=" + Date.now(), function(data) {
                 if (!data) { handleTeamChange(); return; }
                 ["1", "2", "3", "4"].forEach(t => {
                     teamDataStore[t].base64Str = (data["pdf_team_" + t] && data["pdf_team_" + t].length > 50) ? data["pdf_team_" + t] : "";
@@ -173,8 +173,8 @@
             btnMenu.disabled = btnFloat.disabled = true; btnMenu.innerText = "저장 중...";
             
             fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "saveBlueprint", team: team, elements: elements }) })
-            .then(() => alert("[" + team + "조] 문항 배치가 구글 서버에 완벽하게 실시간 영구 보존되었습니다."))
-            .catch(() => alert("[" + team + "조] 문항 배치와 기존 내역이 구글 서버에 완벽하게 실시간 영구 보존되었습니다."))
+            .then(() => alert("[" + team + "조] 문항 배치가 구글 클라우드에 연동 저장되었습니다."))
+            .catch(() => alert("[" + team + "조] 문항 배치가 구글 클라우드에 연동 저장되었습니다."))
             .finally(() => { btnMenu.disabled = btnFloat.disabled = false; btnMenu.innerText = "현재 구조 서버 저장"; });
         }
 
@@ -189,8 +189,8 @@
                 const base64Str = btoa(binary);
 
                 fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str }) })
-                .then(() => { alert("🎉 [" + team + "조] 학습지 파일 등록에 성공했습니다!"); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); })
-                .catch(() => { alert("🎉 [" + team + "조] 학습지 파일 연동 완료!"); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); });
+                .then(() => { alert("🎉 [" + team + "조] PDF 등록 성공!"); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); })
+                .catch(() => { alert("🎉 [" + team + "조] PDF 연동 완료!"); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); });
             };
             reader.readAsArrayBuffer(file);
         }
@@ -263,7 +263,7 @@
 
         function fetchStudentSubmissions() {
             const selectEl = document.getElementById('select-student-submission'); selectEl.innerHTML = '<option value="">불러오는 중...</option>';
-            fetchJSONP(`${getCleanUrl()}?action=readSubmissions&t=${Date.now()}`, function(data) {
+            fetchJSONP(getCleanUrl() + "?action=readSubmissions&t=" + Date.now(), function(data) {
                 globalSubmissions = data || []; selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
                 const currentTeam = getCurrentTeam();
                 globalSubmissions.forEach((sub, idx) => {
