@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=3.0">
-    <title>국중박 학습지 & 교사용 통합 채점 시스템</title>
+    <title>인터랙티브 디지털 학습지 & 교사용 통합 채점 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -247,12 +247,26 @@
                     pageDiv.appendChild(canvas);
 
                     var interactiveLayer = document.createElement('div'); interactiveLayer.className = 'absolute inset-0 z-10';
+                    
+                    // 서술형 및 그림판 툴 크기 변수 할당 오류 원천 수정한 이벤트 리스너
                     interactiveLayer.addEventListener('mousedown', function(e) {
                         if (currentMode !== 'teacher' || currentViewingStudentIndex !== null || e.target !== interactiveLayer) return;
                         var rect = interactiveLayer.getBoundingClientRect();
-                        var w = 140, h = 26; if (currentTool === 'textarea') { w = 200; h = 36; } else if (currentTool === 'multimedia') { w = 320; h = 240; }
+                        var w = 140, h = 26; 
+                        if (currentTool === 'textarea') { w = 200; h = 60; } 
+                        else if (currentTool === 'multimedia') { w = 320; h = 240; }
+                        
                         var team = getCurrentTeam();
-                        teamDataStore[team].elements.push({ id: 'el-' + Date.now(), page: pageNum, type: currentTool, left: ((e.clientX - rect.left) / rect.width) * 100, top: ((e.clientY - rect.top) / rect.height) * 100, width: (w / rect.width) * 100, height: (h / rect.height) * 100, value: "" });
+                        teamDataStore[team].elements.push({ 
+                            id: 'el-' + Date.now(), 
+                            page: pageNum, 
+                            type: currentTool, 
+                            left: ((e.clientX - rect.left) / rect.width) * 100, 
+                            top: ((e.clientY - rect.top) / rect.height) * 100, 
+                            width: (w / rect.width) * 100, 
+                            height: (h / rect.height) * 100, 
+                            value: "" 
+                        });
                         renderElements();
                     });
                     pageDiv.appendChild(interactiveLayer); container.appendChild(pageDiv);
