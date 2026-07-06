@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=3.0">
-    <title>국립중앙박물관 학습지 & 교사용 통합 채점 시스템</title>
+    <title>인터랙티브 디지털 학습지 & 교사용 통합 채점 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -31,7 +31,7 @@
     <header class="bg-indigo-900 text-white px-4 py-3 shadow-md flex justify-between items-center z-10 shrink-0">
         <div class="flex items-center space-x-2">
             <i class="fa-solid fa-graduation-cap text-xl text-emerald-400"></i>
-            <h1 class="text-sm md:text-base font-bold tracking-tight">국중박 학습지(1-6)</h1>
+            <h1 class="text-sm md:text-base font-bold tracking-tight">스마트 디지털 교사용 통합 학습 시스템</h1>
         </div>
         <div class="flex items-center space-x-2">
             <span id="badge-mode" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500 text-white"><i class="fa-solid fa-user-graduate mr-1"></i>학생 모드</span>
@@ -99,6 +99,7 @@
 
         <main class="flex-grow p-3 md:p-6 overflow-auto max-h-[calc(100vh-53px)] pdf-scroller relative">
             <div id="pdf-container" class="w-full flex flex-col items-center">
+                <!-- 로딩 화면을 더 확실하고 안정적으로 바꿈 -->
                 <div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-xs font-bold animate-pulse">
                     <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 구글 클라우드 연결 중...
                 </div>
@@ -126,94 +127,113 @@
         let globalSubmissions = []; let currentViewingStudentIndex = null; 
         let teamDataStore = {"1":{elements:[],base64Str:""},"2":{elements:[],base64Str:""},"3":{elements:[],base64Str:""},"4":{elements:[],base64Str:""}};
 
-        window.addEventListener('DOMContentLoaded', function() { fetchAllDataFromServer(); });
+        window.addEventListener('DOMContentLoaded', fetchAllDataFromServer);
         window.addEventListener('keydown', function(e) { if (e.key === 'F2') { e.preventDefault(); triggerAdminAuth(); } });
 
         function triggerAdminAuth() {
-            var inputPw = prompt("교사용 관리자 비밀번호를 입력하세요.");
+            let inputPw = prompt("교사용 관리자 비밀번호를 입력하세요.");
             if (inputPw === TEACHER_PASSWORD) { alert("인증 성공!"); switchMode('teacher'); } 
             else if (inputPw !== null) { alert("비밀번호가 일치하지 않습니다."); }
         }
         function exitTeacherMode() { clearStudentViewMode(); switchMode('student'); }
         function getCurrentTeam() { return document.getElementById('select-team').value; }
-        function getCleanUrl() { var url = GOOGLE_GAS_URL.trim(); return url.indexOf("?") !== -1 ? url.split("?")[0] : url; }
+        function getCleanUrl() { let url = GOOGLE_GAS_URL.trim(); return url.includes("?") ? url.split("?")[0] : url; }
 
-        function fetchJSONP(url, successCallback) {
-            var callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
-            var timeout = setTimeout(function() {
-                delete window[callbackName]; if(script.parentNode) script.parentNode.removeChild(script);
-                handleTeamChange();
-            }, 10000);
+        // [중요 패치 1] 타임아웃 오류를 유발하던 불안정한 JSONP 방식을 폐기하고 안정적인 표준 Fetch API로 교체
+        async function fetchAllDataFromServer() {
+            const cleanUrl = getCleanUrl();
+            if (cleanUrl.includes("★") || !cleanUrl) { handleTeamChange(); return; }
+            
+            const container = document.getElementById('pdf-container');
+            container.innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-sm font-bold animate-pulse"><i class="fa-solid fa-sync animate-spin mr-2"></i>서버에서 데이터를 다운로드 중입니다... (네트워크에 따라 수 초 소요)</div>';
 
-            window[callbackName] = function(data) {
-                clearTimeout(timeout); delete window[callbackName]; if(script.parentNode) script.parentNode.removeChild(script);
-                successCallback(data);
-            };
-            var script = document.createElement('script');
-            script.src = url + (url.indexOf('?') !== -1 ? '&' : '?') + 'callback=' + callbackName;
-            document.body.appendChild(script);
+            try {
+                const response = await fetch(`${cleanUrl}?action=getPDFs&t=${Date.now()}`);
+                if (!response.ok) throw new Error("네트워크 응답 오류");
+                const data = await response.json();
+                
+                if (data) {
+                    ["1", "2", "3", "4"].forEach(t => {
+                        teamDataStore[t].base64Str = (data["pdf_team_" + t] && data["pdf_team_" + t].length > 50) ? data["pdf_team_" + t] : "";
+                        teamDataStore[t].elements = data["blueprint_team_" + t] || [];
+                    });
+                }
+                handleTeamChange(); // 100% 데이터를 받은 직후 렌더링
+            } catch (err) {
+                console.error("데이터 통신 에러:", err);
+                container.innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-red-500 mt-6 text-xs font-bold">서버 연결에 실패했습니다.<br>구글 웹앱 URL을 확인하시거나 네트워크 상태를 점검해주세요.</div>';
+            }
         }
 
-        function fetchAllDataFromServer() {
-            var cleanUrl = getCleanUrl();
-            if (cleanUrl.indexOf("★") !== -1 || !cleanUrl) { handleTeamChange(); return; }
-            fetchJSONP(cleanUrl + "?action=getPDFs&t=" + Date.now(), function(data) {
-                if (!data) { handleTeamChange(); return; }
-                ["1", "2", "3", "4"].forEach(function(t) {
-                    teamDataStore[t].base64Str = (data["pdf_team_" + t] && data["pdf_team_" + t].length > 50) ? data["pdf_team_" + t] : "";
-                    teamDataStore[t].elements = data["blueprint_team_" + t] || [];
+        async function fetchStudentSubmissions() {
+            const selectEl = document.getElementById('select-student-submission'); 
+            selectEl.innerHTML = '<option value="">불러오는 중...</option>';
+            try {
+                const response = await fetch(`${getCleanUrl()}?action=readSubmissions&t=${Date.now()}`);
+                const data = await response.json();
+                globalSubmissions = data || []; 
+                selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
+                const currentTeam = getCurrentTeam();
+                globalSubmissions.forEach((sub, idx) => {
+                    if (String(sub.team) === String(currentTeam)) {
+                        const opt = document.createElement('option'); opt.value = idx; opt.innerText = `[${sub.studentId}] ${sub.studentName}`; selectEl.appendChild(opt);
+                    }
                 });
-                handleTeamChange();
-            });
+            } catch (err) {
+                alert("제출 현황을 불러오지 못했습니다.");
+                selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
+            }
         }
 
         function saveBlueprintToServer() {
-            var team = getCurrentTeam(); var elements = teamDataStore[team].elements;
-            var btnMenu = document.getElementById('btn-save-blueprint'); var btnFloat = document.getElementById('btn-floating-save');
+            let team = getCurrentTeam(); let elements = teamDataStore[team].elements;
+            let btnMenu = document.getElementById('btn-save-blueprint'); let btnFloat = document.getElementById('btn-floating-save');
             btnMenu.disabled = btnFloat.disabled = true; btnMenu.innerText = "저장 중...";
             
             fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "saveBlueprint", team: team, elements: elements }) })
-            .then(function() { alert("[" + team + "조] 문항 배치가 저장 완료되었습니다."); })
-            .catch(function() { alert("[" + team + "조] 문항 배치가 저장 완료되었습니다."); })
-            .finally(function() { btnMenu.disabled = btnFloat.disabled = false; btnMenu.innerText = "현재 구조 서버 저장"; });
+            .then(() => alert(`[${team}조] 문항 배치가 저장 완료되었습니다.`))
+            .catch(() => alert(`[${team}조] 문항 배치가 저장 완료되었습니다.`))
+            .finally(() => { btnMenu.disabled = btnFloat.disabled = false; btnMenu.innerText = "현재 구조 서버 저장"; });
         }
 
         function uploadPDFToServer(input) {
-            var file = input.files[0]; if (!file) return;
-            var team = getCurrentTeam(); var reader = new FileReader();
+            let file = input.files[0]; if (!file) return;
+            let team = getCurrentTeam(); let reader = new FileReader();
             document.getElementById('pdf-container').innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 font-bold animate-pulse">구글 클라우드로 고속 업로드 중...</div>';
 
             reader.onload = function(e) {
-                var bytes = new Uint8Array(e.target.result); var binary = '';
-                for (var i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
-                var base64Str = btoa(binary);
+                let bytes = new Uint8Array(e.target.result); let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
+                let base64Str = btoa(binary);
 
                 fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str }) })
-                .then(function() { alert("🎉 [" + team + "조] PDF 등록 성공!"); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); })
-                .catch(function() { alert("🎉 [" + team + "조] PDF 연동 완료!"); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); });
+                .then(() => { alert(`🎉 [${team}조] PDF 등록 성공!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); })
+                .catch(() => { alert(`🎉 [${team}조] PDF 연동 완료!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); });
             };
             reader.readAsArrayBuffer(file);
         }
 
         function handleTeamChange() {
-            clearStudentViewMode(); var team = getCurrentTeam(); var store = teamDataStore[team];
-            if (store && store.base64Str && store.base64Str.length > 50) { loadPDFFromBase64(store.base64Str); } 
-            else {
-                document.getElementById('pdf-container').innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs"><i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ' + team + '조] 등록된 클라우드 학습지가 없습니다.<br>오른쪽 아래 교사 모드(Admin)를 켠 뒤 PDF 학습지 파일을 새로 업로드해 주세요.</div>';
+            clearStudentViewMode(); 
+            let team = getCurrentTeam(); let store = teamDataStore[team];
+            if (store && store.base64Str && store.base64Str.length > 50) { 
+                loadPDFFromBase64(store.base64Str); 
+            } else {
+                document.getElementById('pdf-container').innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs"><i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 클라우드 학습지가 없습니다.<br>오른쪽 아래 교사 모드(Admin)를 켠 뒤 PDF 학습지 파일을 새로 업로드해 주세요.</div>`;
             }
         }
 
         function loadPDFFromBase64(base64) {
             try {
-                var binaryStr = atob(base64); var len = binaryStr.length; var bytes = new Uint8Array(len);
-                for (var i = 0; i < len; i++) { bytes[i] = binaryStr.charCodeAt(i); }
+                let binaryStr = atob(base64); let len = binaryStr.length; let bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) { bytes[i] = binaryStr.charCodeAt(i); }
                 loadPDF(bytes.buffer);
             } catch(e) { handleTeamChange(); }
         }
 
         function switchMode(mode) {
-            currentMode = mode; var badge = document.getElementById('badge-mode'); var exitBtn = document.getElementById('btn-exit-teacher');
-            var floatingSave = document.getElementById('floating-save-container');
+            currentMode = mode; let badge = document.getElementById('badge-mode'); let exitBtn = document.getElementById('btn-exit-teacher');
+            let floatingSave = document.getElementById('floating-save-container');
             if(mode === 'teacher') {
                 badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-600 text-white"; badge.innerHTML = '<i class="fa-solid fa-chalkboard-user mr-1"></i>교사 편집 모드';
                 exitBtn.classList.remove('hidden'); document.getElementById('panel-teacher').classList.remove('hidden'); document.getElementById('panel-student').classList.add('hidden'); floatingSave.classList.remove('hidden');
@@ -226,50 +246,47 @@
 
         function setTool(tool) {
             currentTool = tool;
-            ['text', 'textarea', 'multimedia'].forEach(function(t) {
-                var btn = document.getElementById('tool-' + t);
+            ['text', 'textarea', 'multimedia'].forEach(t => {
+                let btn = document.getElementById('tool-' + t);
                 if(btn) btn.className = t === tool ? 'py-2 px-1 border rounded text-center text-[11px] font-medium bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200' : 'py-2 px-1 border rounded text-center text-[11px] font-medium bg-slate-50';
             });
         }
 
         async function loadPDF(arrayBuffer) {
-            var container = document.getElementById('pdf-container'); container.innerHTML = '';
+            let container = document.getElementById('pdf-container'); container.innerHTML = '';
             try {
                 pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                for (var pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                    var page = await pdfDoc.getPage(pageNum); var viewport = page.getViewport({ scale: pdfScale });
-                    var pageDiv = document.createElement('div'); pageDiv.id = 'page-container-' + pageNum; pageDiv.className = 'pdf-page-container';
+                for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                    let page = await pdfDoc.getPage(pageNum); let viewport = page.getViewport({ scale: pdfScale });
+                    let pageDiv = document.createElement('div'); pageDiv.id = 'page-container-' + pageNum; pageDiv.className = 'pdf-page-container';
                     pageDiv.style.width = viewport.width + 'px'; pageDiv.style.height = viewport.height + 'px';
 
-                    var canvas = document.createElement('canvas'); canvas.className = 'absolute top-0 left-0 z-0';
+                    let canvas = document.createElement('canvas'); canvas.className = 'absolute top-0 left-0 z-0';
                     canvas.width = viewport.width; canvas.height = viewport.height;
                     await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
                     pageDiv.appendChild(canvas);
 
-                    var interactiveLayer = document.createElement('div'); 
-                    interactiveLayer.className = 'absolute inset-0';
-                    interactiveLayer.style.zIndex = '25';
-                    interactiveLayer.style.cursor = 'crosshair';
+                    // [중요 패치 2] 문항 생성 클릭을 감지하는 투명 보호막 장치 (정확한 좌표 연산 복구)
+                    let interactiveLayer = document.createElement('div'); 
+                    interactiveLayer.className = 'absolute inset-0 z-10 cursor-crosshair';
                     interactiveLayer.style.background = 'transparent';
                     
-                    interactiveLayer.addEventListener('click', function(e) {
+                    interactiveLayer.addEventListener('mousedown', function(e) {
                         if (currentMode !== 'teacher' || currentViewingStudentIndex !== null) return;
+                        if (e.target !== interactiveLayer) return; // 자식 요소(이미 만들어진 상자) 클릭 시 무시
                         
-                        var targetLayer = e.currentTarget;
-                        var rect = targetLayer.getBoundingClientRect();
-                        var clickX = e.clientX - rect.left;
-                        var clickY = e.clientY - rect.top;
+                        let rect = interactiveLayer.getBoundingClientRect();
+                        let clickX = e.clientX - rect.left;
+                        let clickY = e.clientY - rect.top;
                         
-                        var w = 140, h = 26; 
+                        let w = 140, h = 26; 
                         if (currentTool === 'textarea') { w = 200; h = 60; } 
                         else if (currentTool === 'multimedia') { w = 320; h = 240; }
                         
-                        var pNum = parseInt(targetLayer.parentNode.id.replace('page-container-', ''));
-                        var team = getCurrentTeam();
-                        
+                        let team = getCurrentTeam();
                         teamDataStore[team].elements.push({ 
                             id: 'el-' + Date.now(), 
-                            page: pNum, 
+                            page: pageNum, 
                             type: currentTool, 
                             left: (clickX / rect.width) * 100, 
                             top: (clickY / rect.height) * 100, 
@@ -282,94 +299,82 @@
                     
                     pageDiv.appendChild(interactiveLayer); container.appendChild(pageDiv);
                 }
-                // PDF 구조가 완전히 펴진 직후 기존 문항 요소들을 위에 얹도록 순서 강제 교정!
                 renderElements();
             } catch(e) { console.error(e); }
         }
 
-        function fetchStudentSubmissions() {
-            var selectEl = document.getElementById('select-student-submission'); selectEl.innerHTML = '<option value="">불러오는 중...</option>';
-            fetchJSONP(getCleanUrl() + "?action=readSubmissions&t=" + Date.now(), function(data) {
-                globalSubmissions = data || []; selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
-                var currentTeam = getCurrentTeam();
-                globalSubmissions.forEach(function(sub, idx) {
-                    if (String(sub.team) === String(currentTeam)) {
-                        var opt = document.createElement('option'); opt.value = idx; opt.innerText = '[' + sub.studentId + '] ' + sub.studentName; selectEl.appendChild(opt);
-                    }
-                });
-            });
-        }
-
         function loadStudentResponseToCanvas() {
-            var val = document.getElementById('select-student-submission').value; if (val === "") { clearStudentViewMode(); return; }
+            let val = document.getElementById('select-student-submission').value; if (val === "") { clearStudentViewMode(); return; }
             currentViewingStudentIndex = parseInt(val); document.getElementById('btn-clear-view').classList.remove('hidden');
-            var studentData = globalSubmissions[currentViewingStudentIndex]; var currentTeam = getCurrentTeam();
-            var responsesArray = []; try { responsesArray = typeof studentData.responses === 'string' ? JSON.parse(studentData.responses) : studentData.responses; } catch(e) { responsesArray = []; }
-            teamDataStore[currentTeam].elements.forEach(function(el) { var match = responsesArray.find(function(r) { return r.id === el.id; }); el.value = match ? match.value : ""; });
+            let studentData = globalSubmissions[currentViewingStudentIndex]; let currentTeam = getCurrentTeam();
+            let responsesArray = []; try { responsesArray = typeof studentData.responses === 'string' ? JSON.parse(studentData.responses) : studentData.responses; } catch(e) { responsesArray = []; }
+            teamDataStore[currentTeam].elements.forEach(el => { let match = responsesArray.find(r => r.id === el.id); el.value = match ? match.value : ""; });
             renderElements();
         }
 
         function clearStudentViewMode() {
             currentViewingStudentIndex = null; document.getElementById('btn-clear-view').classList.add('hidden');
-            var selectWidget = document.getElementById('select-student-submission'); if (selectWidget) selectWidget.value = "";
-            var currentTeam = getCurrentTeam(); teamDataStore[currentTeam].elements.forEach(function(el) { el.value = ""; });
+            let selectWidget = document.getElementById('select-student-submission'); if (selectWidget) selectWidget.value = "";
+            let currentTeam = getCurrentTeam(); teamDataStore[currentTeam].elements.forEach(el => { el.value = ""; });
             renderElements();
         }
 
         function renderElements() {
-            document.querySelectorAll('.overlay-element, .student-element').forEach(function(el) { el.remove(); });
-            var team = getCurrentTeam(); var isViewingMode = (currentViewingStudentIndex !== null);
+            document.querySelectorAll('.overlay-element, .student-element').forEach(el => el.remove());
+            let team = getCurrentTeam(); let isViewingMode = (currentViewingStudentIndex !== null);
             if(!teamDataStore[team] || !teamDataStore[team].elements) return;
 
-            teamDataStore[team].elements.forEach(function(el) {
-                var pageWrap = document.getElementById('page-container-' + el.page); if (!pageWrap) return;
-                var wrap = document.createElement('div'); wrap.style.left = el.left + '%'; wrap.style.top = el.top + '%'; wrap.style.width = el.width + '%'; wrap.style.height = el.height + '%';
+            teamDataStore[team].elements.forEach(el => {
+                let pageWrap = document.getElementById('page-container-' + el.page); if (!pageWrap) return;
+                let wrap = document.createElement('div'); wrap.style.left = el.left + '%'; wrap.style.top = el.top + '%'; wrap.style.width = el.width + '%'; wrap.style.height = el.height + '%';
 
                 if (currentMode === 'teacher' && !isViewingMode) {
                     wrap.className = 'overlay-element';
-                    wrap.innerHTML = '<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/40">[' + (el.type === 'multimedia' ? '그림판' : el.type) + ']</div>' +
-                                      '<button onclick="event.stopPropagation(); deleteElement(\'' + el.id + '\')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] z-50">×</button><div class="resize-handle"></div>';
+                    // 삭제 버튼 클릭 시 뒤 배경이 안 눌리도록 onmousedown 이벤트 차단 확실히 적용
+                    wrap.innerHTML = `<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/40">[${el.type === 'multimedia' ? '그림판' : el.type}]</div>
+                                      <button onmousedown="event.stopPropagation(); deleteElement('${el.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] z-50">×</button>
+                                      <div class="resize-handle"></div>`;
                     setupDragAndResize(wrap, el);
                 } else {
                     wrap.className = 'student-element';
                     if (el.type === 'text') {
                         if (isViewingMode) {
-                            var div = document.createElement('div'); div.className = 'viewer-text'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
+                            let div = document.createElement('div'); div.className = 'viewer-text'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
                         } else {
-                            var input = document.createElement('input'); input.type = 'text'; input.className = 'student-text'; input.placeholder = '단답형 답변 작성';
-                            input.value = el.value || ''; input.addEventListener('input', function(e) { el.value = e.target.value; }); wrap.appendChild(input);
+                            let input = document.createElement('input'); input.type = 'text'; input.className = 'student-text'; input.placeholder = '단답형 답변 작성';
+                            input.value = el.value || ''; input.addEventListener('input', e => el.value = e.target.value); wrap.appendChild(input);
                         }
                     } else if (el.type === 'textarea') {
                         if (isViewingMode) {
-                            var div = document.createElement('div'); div.className = 'viewer-textarea'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
+                            let div = document.createElement('div'); div.className = 'viewer-textarea'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
                         } else {
-                            var ta = document.createElement('textarea'); ta.className = 'student-textarea'; ta.placeholder = '서술형 답변 내용을 입력하세요...';
-                            ta.value = el.value || ''; ta.addEventListener('input', function(e) { el.value = e.target.value; }); wrap.appendChild(ta);
+                            let ta = document.createElement('textarea'); ta.className = 'student-textarea'; ta.placeholder = '서술형 답변 내용을 입력하세요...';
+                            ta.value = el.value || ''; ta.addEventListener('input', e => el.value = e.target.value); wrap.appendChild(ta);
                         }
                     } else if (el.type === 'multimedia') {
                         if (isViewingMode) {
-                            var box = document.createElement('div'); box.className = "w-full h-full bg-white border-2 border-indigo-500 rounded relative overflow-hidden flex flex-col";
+                            let box = document.createElement('div'); box.className = "w-full h-full bg-white border-2 border-indigo-500 rounded relative overflow-hidden flex flex-col";
                             box.innerHTML = '<div class="bg-indigo-500 text-white font-bold text-[9px] px-1 py-0.5"><i class="fa-solid fa-palette"></i> 학생 그림판 제출 내용</div>';
-                            var imgArea = document.createElement('div'); imgArea.className = "flex-grow relative bg-slate-50";
+                            let imgArea = document.createElement('div'); imgArea.className = "flex-grow relative bg-slate-50";
                             if(el.value && el.value.indexOf("data:image") === 0) {
-                                var sImg = document.createElement('img'); sImg.src = el.value; sImg.className = "w-full h-full object-contain absolute inset-0"; imgArea.appendChild(sImg);
+                                let sImg = document.createElement('img'); sImg.src = el.value; sImg.className = "w-full h-full object-contain absolute inset-0"; imgArea.appendChild(sImg);
                             } else { imgArea.innerHTML = '<div class="text-center text-slate-400 text-[10px] mt-8">그림 데이터 없음</div>'; }
                             box.appendChild(imgArea); wrap.appendChild(box);
                         } else {
-                            var cvContainer = document.createElement('div'); cvContainer.className = "student-canvas-container";
-                            cvContainer.innerHTML = '<div class="canvas-toolbar"><div class="flex items-center justify-between w-full flex-wrap gap-1"><div class="flex items-center space-x-1"><input type="color" data-id="color-picker-' + el.id + '" value="#000000" class="w-6 h-6 p-0 border border-slate-300 rounded cursor-pointer bg-transparent"><button data-tool="pen" class="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold">펜</button><button data-tool="eraser" class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]">지우개</button></div><div><button data-tool="undo" class="px-1.5 py-0.5 bg-red-100 rounded text-[10px] text-red-600 font-bold">전체 지우기</button></div></div><div class="flex items-center space-x-2 mt-1 bg-white px-2 py-0.5 rounded border border-slate-200"><span data-id="thickness-label-' + el.id + '" class="text-[9px] font-bold text-slate-500 shrink-0">두께: 3px</span><input type="range" data-id="thick-slider-' + el.id + '" min="1" max="30" value="3" class="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"></div></div>';
-                            var cv = document.createElement('canvas'); cv.className = 'student-canvas'; cvContainer.appendChild(cv); wrap.appendChild(cvContainer);
-                            setTimeout(function() {
-                                cv.width = cv.offsetWidth; cv.height = cv.offsetHeight; var ctx = cv.getContext('2d'); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                                var currentBrushMode = "pen"; var pPicker = cvContainer.querySelector('[data-id="color-picker-' + el.id + '"]');
-                                var tSlider = cvContainer.querySelector('[data-id="thick-slider-' + el.id + '"]'); var tLabel = cvContainer.querySelector('[data-id="thickness-label-' + el.id + '"]');
-                                var btnPen = cvContainer.querySelector('[data-tool="pen"]'); var btnEraser = cvContainer.querySelector('[data-tool="eraser"]');
-                                if (el.value && el.value.indexOf("data:image") === 0) { var img = new Image(); img.onload = function() { ctx.drawImage(img, 0, 0); }; img.src = el.value; }
-                                btnPen.onclick = function() { currentBrushMode = "pen"; btnPen.className = "px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold"; btnEraser.className = "px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]"; };
-                                btnEraser.onclick = function() { currentBrushMode = "eraser"; btnEraser.className = "px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold"; btnPen.className = "px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]"; };
-                                tSlider.oninput = function(e) { tLabel.innerText = "두께: " + e.target.value + "px"; };
-                                cvContainer.querySelector('[data-tool="undo"]').onclick = function() { if(confirm("초기화할까요?")) { ctx.clearRect(0, 0, cv.width, cv.height); el.value = ""; } };
-                                setupDrawing(cv, ctx, el, function() { return currentBrushMode === "eraser" ? "#ffffff" : pPicker.value; }, function() { return parseInt(tSlider.value); });
+                            let cvContainer = document.createElement('div'); cvContainer.className = "student-canvas-container";
+                            cvContainer.innerHTML = `<div class="canvas-toolbar"><div class="flex items-center justify-between w-full flex-wrap gap-1"><div class="flex items-center space-x-1"><input type="color" data-id="color-picker-${el.id}" value="#000000" class="w-6 h-6 p-0 border border-slate-300 rounded cursor-pointer bg-transparent"><button data-tool="pen" class="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold">펜</button><button data-tool="eraser" class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]">지우개</button></div><div><button data-tool="undo" class="px-1.5 py-0.5 bg-red-100 rounded text-[10px] text-red-600 font-bold">전체 지우기</button></div></div><div class="flex items-center space-x-2 mt-1 bg-white px-2 py-0.5 rounded border border-slate-200"><span data-id="thickness-label-${el.id}" class="text-[9px] font-bold text-slate-500 shrink-0">두께: 3px</span><input type="range" data-id="thick-slider-${el.id}" min="1" max="30" value="3" class="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"></div></div>`;
+                            let cv = document.createElement('canvas'); cv.className = 'student-canvas'; cvContainer.appendChild(cv); wrap.appendChild(cvContainer);
+                            setTimeout(() => {
+                                cv.width = cv.offsetWidth; cv.height = cv.offsetHeight; let ctx = cv.getContext('2d'); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                                let currentBrushMode = "pen"; let pPicker = cvContainer.querySelector(`[data-id="color-picker-${el.id}"]`);
+                                let tSlider = cvContainer.querySelector(`[data-id="thick-slider-${el.id}"]`); let tLabel = cvContainer.querySelector(`[data-id="thickness-label-${el.id}"]`);
+                                let btnPen = cvContainer.querySelector('[data-tool="pen"]'); let btnEraser = cvContainer.querySelector('[data-tool="eraser"]');
+                                if (el.value && el.value.indexOf("data:image") === 0) { let img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = el.value; }
+                                btnPen.onclick = () => { currentBrushMode = "pen"; btnPen.className = "px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold"; btnEraser.className = "px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]"; };
+                                btnEraser.onclick = () => { currentBrushMode = "eraser"; btnEraser.className = "px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold"; btnPen.className = "px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]"; };
+                                tSlider.oninput = e => { tLabel.innerText = `두께: ${e.target.value}px`; };
+                                cvContainer.querySelector('[data-tool="undo"]').onclick = () => { if(confirm("초기화할까요?")) { ctx.clearRect(0, 0, cv.width, cv.height); el.value = ""; } };
+                                setupDrawing(cv, ctx, el, () => currentBrushMode === "eraser" ? "#ffffff" : pPicker.value, () => parseInt(tSlider.value));
                             }, 50);
                         }
                     }
@@ -380,12 +385,12 @@
 
         function saveCanvasState(canvas, elObj) { elObj.value = canvas.toDataURL(); }
         function setupDrawing(cv, ctx, elObj, getColor, getWidth) {
-            var active = false;
+            let active = false;
             function start(e) { active = true; ctx.beginPath(); draw(e); }
             function end() { if(active) { active = false; ctx.beginPath(); saveCanvasState(cv, elObj); } }
             function draw(e) {
-                if (!active) return; e.preventDefault(); var r = cv.getBoundingClientRect();
-                var cx = e.touches ? e.touches[0].clientX : e.clientX; var cy = e.touches ? e.touches[0].clientY : e.clientY;
+                if (!active) return; e.preventDefault(); let r = cv.getBoundingClientRect();
+                let cx = e.touches ? e.touches[0].clientX : e.clientX; let cy = e.touches ? e.touches[0].clientY : e.clientY;
                 ctx.lineWidth = getWidth(); ctx.strokeStyle = getColor(); ctx.lineTo(cx - r.left, cy - r.top); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx - r.left, cy - r.top);
             }
             cv.addEventListener('mousedown', start); cv.addEventListener('mousemove', draw); cv.addEventListener('mouseup', end);
@@ -393,9 +398,9 @@
         }
 
         function setupDragAndResize(wrap, elObj) {
-            var isDrag = false, isResize = false, sx, sy, sl, st, sw, sh;
+            let isDrag = false, isResize = false, sx, sy, sl, st, sw, sh;
             function handleStart(clientX, clientY, target) {
-                var pRect = wrap.parentElement.getBoundingClientRect();
+                let pRect = wrap.parentElement.getBoundingClientRect();
                 if (target.classList.contains('resize-handle')) { isResize = true; sx = clientX; sy = clientY; sw = parseFloat(wrap.style.width); sh = parseFloat(wrap.style.height); }
                 else { isDrag = true; sx = clientX; sy = clientY; sl = parseFloat(wrap.style.left); st = parseFloat(wrap.style.top); }
                 function move(moveClientX, moveClientY) {
@@ -406,29 +411,29 @@
                 function mouseUpHandler() { isDrag = isResize = false; document.removeEventListener('mousemove', mouseMoveHandler); document.removeEventListener('mouseup', mouseUpHandler); }
                 document.addEventListener('mousemove', mouseMoveHandler); document.addEventListener('mouseup', mouseUpHandler);
             }
-            wrap.addEventListener('mousedown', function(e) { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') { e.preventDefault(); e.stopPropagation(); handleStart(e.clientX, e.clientY, e.target); } });
+            wrap.addEventListener('mousedown', e => { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') { e.preventDefault(); e.stopPropagation(); handleStart(e.clientX, e.clientY, e.target); } });
         }
 
-        function deleteElement(id) { var team = getCurrentTeam(); var elements = teamDataStore[team].elements; teamDataStore[team].elements = elements.filter(function(el) { return el.id !== id; }); renderElements(); }
+        function deleteElement(id) { let team = getCurrentTeam(); teamDataStore[team].elements = teamDataStore[team].elements.filter(el => el.id !== id); renderElements(); }
 
         async function submitWorksheet() {
-            var team = getCurrentTeam(); var sid = document.getElementById('student-id').value.trim(); var sname = document.getElementById('student-name').value.trim();
+            let team = getCurrentTeam(); let sid = document.getElementById('student-id').value.trim(); let sname = document.getElementById('student-name').value.trim();
             if (!sid || !sname) { alert("학번과 이름을 정확히 입력하셔야 제출이 가능합니다."); return; }
-            var elements = teamDataStore[team].elements;
+            let elements = teamDataStore[team].elements;
             if (elements.length === 0) { alert("제출할 문항이 없습니다."); return; }
 
-            var hasEmptyField = elements.some(function(el) { return !el.value || el.value.trim() === ""; });
+            let hasEmptyField = elements.some(el => !el.value || el.value.trim() === "");
             if (hasEmptyField) {
                 alert("⚠️ 아직 작성하지 않은 문항이 있습니다!\n\n모든 문항을 빠짐없이 채운 후 제출해 주세요.\n(정말 모르는 내용은 '모름'이라고 적어서 제출하세요.)");
                 return;
             }
 
-            var btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "구글 서버로 전송 중...";
+            let btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "구글 서버로 전송 중...";
             try {
-                await fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(function(el) { return { id: el.id, type: el.type, value: el.value || "" }; }), timestamp: new Date().toLocaleString() }) });
-                alert("🎉 [" + team + "조] 모든 문항이 정상 작성되어 구글 시트에 답안 제출이 완료되었습니다!");
+                await fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() }) });
+                alert(`🎉 [${team}조] 모든 문항이 정상 작성되어 구글 시트에 답안 제출이 완료되었습니다!`);
             } catch (err) { 
-                alert("🎉 [" + team + "조] 답안이 성공적으로 연동되었습니다!"); 
+                alert(`🎉 [${team}조] 답안이 성공적으로 연동되었습니다!`); 
             } finally { btn.disabled = false; btn.innerText = "구글 시트로 답안 제출하기"; }
         }
     </script>
