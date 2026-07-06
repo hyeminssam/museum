@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;500;700&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; -webkit-text-size-adjust: none; }
         
         .pdf-page-container { position: relative; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); background: white; border-radius: 0.5rem; overflow: hidden; display: block; clear: both; }
@@ -66,6 +66,12 @@
             <div id="panel-teacher" class="hidden space-y-4 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
                 <div class="text-center font-bold text-xs text-indigo-800 border-b pb-1.5 mb-1">🔒 교사 전용 관리자 메뉴</div>
                 
+                <div class="bg-amber-50 p-2 rounded-lg border border-amber-200 shadow-inner space-y-1.5">
+                    <label class="block text-[11px] font-bold text-amber-900"><i class="fa-solid fa-cloud-arrow-up mr-1 text-red-500"></i> ☁️ 현재 조에 원격 PDF 업로드</label>
+                    <input type="file" id="upload-pdf-file" accept="application/pdf" onchange="uploadPDFToServer(this)" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
+                    <div class="text-[9px] text-slate-400">※ 파일당 3MB 미만 권장 (모든 폰 자동 반영)</div>
+                </div>
+
                 <div class="bg-white p-2 rounded-lg border border-indigo-200 shadow-inner space-y-2">
                     <label class="block text-[11px] font-bold text-indigo-900"><i class="fa-solid fa-clipboard-check mr-1 text-emerald-500"></i> 📢 학생 제출 답안 채점</label>
                     <button onclick="fetchStudentSubmissions()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-1.5 rounded shadow">
@@ -114,7 +120,7 @@
 
         <main class="flex-grow p-3 md:p-6 overflow-auto max-h-[calc(100vh-53px)] pdf-scroller">
             <div id="pdf-container" class="w-full flex flex-col items-center">
-                <div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">학습지를 불러오는 중입니다...</div>
+                <div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">서버에서 학습지 데이터를 동기화하는 중...</div>
             </div>
         </main>
     </div>
@@ -123,15 +129,9 @@
 
     <script>
         // ==========================================
-        // ★ [교사용 설정] 조별 PDF 주소를 각각 입력해 주세요! ★
+        // ★ [교사용 설정] 새 구글 웹앱 URL 주소만 넣어주세요! ★
         // ==========================================
-        const PDF_URLS_BY_TEAM = {
-            "1": "https://drive.google.com/uc?id=1qvlHEPX1bgid-qiP8E3Zge0THvIUy0tw",
-            "2": "https://drive.google.com/uc?id=1ixVGLw_TAgkY-p2Gg0953ClfbVor2_eQ",
-            "3": "https://drive.google.com/uc?id=12dIaEer4MiFtDcOGSFjNlQoFXq8AGXiW",
-            "4": "https://drive.google.com/uc?id=14N8SbFKRs6GPMLB386724bgmNF-73vxV"
-        };
-        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbygSTP7Jk3n3T-Pa3-njcFV-rpGE_dsPsWL8ApfPzBEpnwQHsK31HC6TUcecKFGlw/exec";
+        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbwwanbn6k4XqYEJ-MIug4RZXe4kOg_LuT1qwU2WH-tafABZAXqqNHs22JN2OGr6idxN/exec";
         const TEACHER_PASSWORD = "4505"; 
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -140,15 +140,15 @@
         let currentViewingStudentIndex = null; 
         
         let teamDataStore = {
-            "1": { elements: [], pdfBuffer: null, initialized: false },
-            "2": { elements: [], pdfBuffer: null, initialized: false },
-            "3": { elements: [], pdfBuffer: null, initialized: false },
-            "4": { elements: [], pdfBuffer: null, initialized: false }
+            "1": { elements: [], base64Str: "" },
+            "2": { elements: [], base64Str: "" },
+            "3": { elements: [], base64Str: "" },
+            "4": { elements: [], base64Str: "" }
         };
 
-        // 초기 시작 시 1조 학습지를 기본으로 로드 시도
+        // 초기 시작 시 서버에 업로드되어 있는 모든 조의 PDF 싹 긁어오기
         window.addEventListener('DOMContentLoaded', () => {
-            handleTeamChange();
+            fetchAllPDFsFromServer();
         });
 
         window.addEventListener('keydown', function(e) { if (e.key === 'F2') { e.preventDefault(); triggerAdminAuth(); } });
@@ -162,30 +162,89 @@
         function exitTeacherMode() { clearStudentViewMode(); alert("학생 모드로 복귀합니다."); switchMode('student'); }
         function getCurrentTeam() { return document.getElementById('select-team').value; }
 
-        // 조가 선택/변경되었을 때 실행되는 함수 (각 조의 전용 PDF 주소를 동적으로 다운로드)
+        // [중요] 서버에서 데이터 몽땅 긁어오는 로직
+        async function fetchAllPDFsFromServer() {
+            const container = document.getElementById('pdf-container');
+            if (GOOGLE_GAS_URL.includes("★")) {
+                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">구글 웹앱 URL 설정을 완료해 주세요.</div>`;
+                return;
+            }
+            try {
+                const response = await fetch(GOOGLE_GAS_URL + "?action=getPDFs&t=" + Date.now());
+                const data = await response.json();
+                
+                ["1", "2", "3", "4"].forEach(t => {
+                    if (data[t]) teamDataStore[t].base64Str = data[t];
+                });
+                handleTeamChange();
+            } catch(e) {
+                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-red-400 mt-6 text-xs">서버 통신 실패: 웹앱 배포 및 URL 주소를 확인하세요.</div>`;
+            }
+        }
+
+        // [중요] 교사가 파일을 선택하면 구글 서버로 직접 전송 및 동기화 처리
+        function uploadPDFToServer(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 3.5 * 1024 * 1024) { alert("구글 제한으로 인해 파일 용량은 3.5MB 이하만 업로드 가능합니다."); return; }
+
+            const team = getCurrentTeam();
+            const reader = new FileReader();
+            
+            // 전송 중 UI 피드백
+            const container = document.getElementById('pdf-container');
+            container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 mt-6 text-xs font-bold animate-pulse">구글 클라우드 서버에 파일을 동기화 중입니다. 잠시만 기다려주세요...</div>`;
+
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                // 바이너리를 텍스트 스트링화(Base64)하여 전송 준비
+                const bytes = new Uint8Array(arrayBuffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
+                const base64Str = btoa(binary);
+
+                try {
+                    await fetch(GOOGLE_GAS_URL, {
+                        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str })
+                    });
+                    
+                    alert(`🎉 제 ${team}조 학습지가 전 세계 구글 서버에 공유 등록되었습니다!\n이제 어느 학생 핸드폰으로 접속해도 즉시 이 파일이 나타납니다.`);
+                    teamDataStore[team].base64Str = base64Str;
+                    loadPDFFromBase64(base64Str);
+                } catch(err) {
+                    alert("업로드 실패: 구글 앱스 스크립트 상태를 점검해 주세요.");
+                    handleTeamChange();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         function handleTeamChange() {
             clearStudentViewMode();
             const team = getCurrentTeam(); 
             const container = document.getElementById('pdf-container'); 
             const store = teamDataStore[team];
-            const targetUrl = PDF_URLS_BY_TEAM[team];
+            
+            const fileInput = document.getElementById('upload-pdf-file');
+            if(fileInput) fileInput.value = "";
 
-            if (store.pdfBuffer) { 
-                loadPDF(store.pdfBuffer); 
-            } else if (targetUrl && !targetUrl.includes("★")) {
-                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">제 ${team}조 학습지 PDF를 원격 로드 중입니다...</div>`;
-                fetch(targetUrl)
-                    .then(res => { if(!res.ok) throw new Error(); return res.arrayBuffer(); })
-                    .then(buffer => {
-                        store.pdfBuffer = buffer;
-                        loadPDF(buffer);
-                    })
-                    .catch(() => {
-                        container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-red-400 mt-6 text-xs">${team}조 PDF 주소가 올바르지 않거나 공유 권한 권한이 없습니다.</div>`;
-                    });
+            if (store.base64Str) { 
+                loadPDFFromBase64(store.base64Str); 
             } else {
-                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">교사 코드 설정에서 [제 ${team}조] 전용 PDF 직접링크를 채워주세요.</div>`;
+                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">
+                    <i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>
+                    제 ${team}조에 등록된 클라우드 학습지가 없습니다.<br>교사 모드(F2) 진입 후 원본 PDF 파일을 업로드해 주세요.
+                </div>`;
             }
+        }
+
+        function loadPDFFromBase64(base64) {
+            const binaryStr = atob(base64);
+            const len = binaryStr.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) { bytes[i] = binaryStr.charCodeAt(i); }
+            loadPDF(bytes.buffer);
         }
 
         function switchMode(mode) {
