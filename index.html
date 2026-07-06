@@ -99,7 +99,6 @@
 
         <main class="flex-grow p-3 md:p-6 overflow-auto max-h-[calc(100vh-53px)] pdf-scroller relative">
             <div id="pdf-container" class="w-full flex flex-col items-center">
-                <!-- 로딩 화면을 더 확실하고 안정적으로 바꿈 -->
                 <div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-xs font-bold animate-pulse">
                     <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 구글 클라우드 연결 중...
                 </div>
@@ -119,7 +118,7 @@
         // ==========================================
         // ★ 구글 웹앱 URL 주소 입력 ★
         // ==========================================
-        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbw0ZisXSHEyGg7VZSO8lspxRFiY2odmHTYQMEBsTGxhMvUOZUrHtmlaZ86Lg8C5okov/exec";
+        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbxIm438d0CJsDVkoRhWdlIw6rFNVMgP85RVBOrGeDhtWqjkYyEBNdBp2EhA5uh46Xqz/exec";
         const TEACHER_PASSWORD = "4505"; 
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -139,7 +138,6 @@
         function getCurrentTeam() { return document.getElementById('select-team').value; }
         function getCleanUrl() { let url = GOOGLE_GAS_URL.trim(); return url.includes("?") ? url.split("?")[0] : url; }
 
-        // [중요 패치 1] 타임아웃 오류를 유발하던 불안정한 JSONP 방식을 폐기하고 안정적인 표준 Fetch API로 교체
         async function fetchAllDataFromServer() {
             const cleanUrl = getCleanUrl();
             if (cleanUrl.includes("★") || !cleanUrl) { handleTeamChange(); return; }
@@ -158,7 +156,7 @@
                         teamDataStore[t].elements = data["blueprint_team_" + t] || [];
                     });
                 }
-                handleTeamChange(); // 100% 데이터를 받은 직후 렌더링
+                handleTeamChange();
             } catch (err) {
                 console.error("데이터 통신 에러:", err);
                 container.innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-red-500 mt-6 text-xs font-bold">서버 연결에 실패했습니다.<br>구글 웹앱 URL을 확인하시거나 네트워크 상태를 점검해주세요.</div>';
@@ -266,14 +264,13 @@
                     await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
                     pageDiv.appendChild(canvas);
 
-                    // [중요 패치 2] 문항 생성 클릭을 감지하는 투명 보호막 장치 (정확한 좌표 연산 복구)
                     let interactiveLayer = document.createElement('div'); 
                     interactiveLayer.className = 'absolute inset-0 z-10 cursor-crosshair';
                     interactiveLayer.style.background = 'transparent';
                     
                     interactiveLayer.addEventListener('mousedown', function(e) {
                         if (currentMode !== 'teacher' || currentViewingStudentIndex !== null) return;
-                        if (e.target !== interactiveLayer) return; // 자식 요소(이미 만들어진 상자) 클릭 시 무시
+                        if (e.target !== interactiveLayer) return;
                         
                         let rect = interactiveLayer.getBoundingClientRect();
                         let clickX = e.clientX - rect.left;
@@ -330,7 +327,6 @@
 
                 if (currentMode === 'teacher' && !isViewingMode) {
                     wrap.className = 'overlay-element';
-                    // 삭제 버튼 클릭 시 뒤 배경이 안 눌리도록 onmousedown 이벤트 차단 확실히 적용
                     wrap.innerHTML = `<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/40">[${el.type === 'multimedia' ? '그림판' : el.type}]</div>
                                       <button onmousedown="event.stopPropagation(); deleteElement('${el.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] z-50">×</button>
                                       <div class="resize-handle"></div>`;
@@ -430,7 +426,18 @@
 
             let btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "구글 서버로 전송 중...";
             try {
-                await fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() }) });
+                await fetch(getCleanUrl(), { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'text/plain' }, 
+                    body: JSON.stringify({ 
+                        action: "submitAnswers",
+                        team: team, 
+                        studentId: sid, 
+                        studentName: sname, 
+                        responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), 
+                        timestamp: new Date().toLocaleString() 
+                    }) 
+                });
                 alert(`🎉 [${team}조] 모든 문항이 정상 작성되어 구글 시트에 답안 제출이 완료되었습니다!`);
             } catch (err) { 
                 alert(`🎉 [${team}조] 답안이 성공적으로 연동되었습니다!`); 
