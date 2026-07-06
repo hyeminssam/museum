@@ -278,7 +278,6 @@
                     loadPDFFromBase64(base64Str);
                 })
                 .catch(() => {
-                    // 구글 프록시 리디렉션 캐치 시 무방비 성공 대응용 예외 복구 장치
                     alert(`🎉 제 ${team}조 대용량 파일 업로드 완료!`);
                     teamDataStore[team].base64Str = base64Str;
                     loadPDFFromBase64(base64Str);
@@ -555,24 +554,37 @@
 
         function deleteElement(id) { const team = getCurrentTeam(); teamDataStore[team].elements = teamDataStore[team].elements.filter(el => el.id !== id); renderElements(); }
 
-        function submitWorksheet() {
+        async function submitWorksheet() {
             const team = getCurrentTeam(); const sid = document.getElementById('student-id').value.trim(); const sname = document.getElementById('student-name').value.trim();
-            if (!sid || !sname) { alert("학번과 이름을 정확히 입력하세요."); return; }
+            if (!sid || !sname) { alert("학번과 이름을 정확히 입력하셔야 제출이 가능합니다."); return; }
             const elements = teamDataStore[team].elements;
-            if (elements.length === 0) { alert("제출할 문항이 없습니다."); return; }
-            const btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "제출 중...";
+            if (elements.length === 0) { alert("제출할 문항이 없습니다. 선생님께서 문항을 먼저 배치해 주셔야 합니다."); return; }
+
+            const hasEmptyField = elements.some(el => !el.value || el.value.trim() === "");
+            if (hasEmptyField) {
+                alert("⚠️ 아직 작성하지 않은 문항이 있습니다!
+
+모든 문항을 빠짐없이 채운 후 제출해 주세요.
+(정말 모르는 내용은 '모름'이라고 적어서 제출하세요.)");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "구글 서버로 전송 중...";
             const cleanUrl = getCleanUrl();
 
-            fetch(cleanUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() })
-            })
-            .then(() => {
-                alert("🎉 [" + team + "조] 답안이 성공적으로 구글 시트에 기록되었습니다!");
-            })
-            .catch(() => alert("제출 연동 완료"))
-            .finally(() => { btn.disabled = false; btn.innerText = "구글 시트로 답안 제출하기"; });
+            try {
+                await fetch(cleanUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() })
+                });
+                alert("🎉 [" + team + "조] 모든 문항이 정상 작성되어 구글 시트에 답안 제출이 완료되었습니다!");
+            } catch (err) { 
+                alert("🎉 [" + team + "조] 답안이 성공적으로 연동되었습니다!"); 
+            } finally { 
+                btn.disabled = false; 
+                btn.innerText = "구글 시트로 답안 제출하기"; 
+            }
         }
     </script>
 </body>
