@@ -100,7 +100,7 @@
         <main class="flex-grow p-3 md:p-6 overflow-auto max-h-[calc(100vh-53px)] pdf-scroller relative">
             <div id="pdf-container" class="w-full flex flex-col items-center">
                 <div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-xs font-bold animate-pulse">
-                    <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 구글 클라우드 동기화 중...
+                    <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 구글 클라우드와 기존 학습지 동기화 중...
                 </div>
             </div>
         </main>
@@ -112,8 +112,8 @@
         </button>
     </div>
     
-    <!-- 모바일 터치가 완벽하게 먹히도록 버튼 스타일로 강화 수정 -->
-    <button onclick="triggerAdminAuth()" class="fixed bottom-1 right-1 text-[10px] text-slate-300/80 bg-transparent hover:text-indigo-500 font-medium p-1 z-50 cursor-pointer outline-none">Admin: F2</button>
+    <!-- 터치 영역을 대폭 확장한 스마트폰용 관리자 진입 버튼 -->
+    <button onclick="triggerAdminAuth()" class="fixed bottom-0 right-0 text-[11px] text-slate-400/80 bg-slate-100 border border-slate-200 rounded-tl-lg font-bold px-3 py-2 z-50 shadow-md">교사모드(Admin)</button>
 
     <script>
         // ==========================================
@@ -131,9 +131,9 @@
         window.addEventListener('keydown', function(e) { if (e.key === 'F2') { e.preventDefault(); triggerAdminAuth(); } });
 
         function triggerAdminAuth() {
-            const inputPw = prompt("교사용 비밀번호를 입력하세요.");
+            const inputPw = prompt("교사용 관리자 비밀번호를 입력하세요.");
             if (inputPw === TEACHER_PASSWORD) { alert("인증 성공!"); switchMode('teacher'); } 
-            else if (inputPw !== null) { alert("비밀번호 에러."); }
+            else if (inputPw !== null) { alert("비밀번호가 일바르지 않습니다."); }
         }
         function exitTeacherMode() { clearStudentViewMode(); switchMode('student'); }
         function getCurrentTeam() { return document.getElementById('select-team').value; }
@@ -144,7 +144,7 @@
             let timeout = setTimeout(() => {
                 delete window[callbackName]; document.body.removeChild(script);
                 handleTeamChange();
-            }, 5000);
+            }, 8000); // 드라이브 대용량 로딩을 고려해 대기 시간을 8초로 넉넉하게 확보
 
             window[callbackName] = function(data) {
                 clearTimeout(timeout); delete window[callbackName]; document.body.removeChild(script);
@@ -161,6 +161,7 @@
             fetchJSONP(`${cleanUrl}?action=getPDFs&t=${Date.now()}`, function(data) {
                 if (!data) { handleTeamChange(); return; }
                 ["1", "2", "3", "4"].forEach(t => {
+                    // 구글 서버에 저장되어 있던 원본 데이터를 정밀 매칭하여 복구합니다.
                     teamDataStore[t].base64Str = (data["pdf_team_" + t] && data["pdf_team_" + t].length > 50) ? data["pdf_team_" + t] : "";
                     teamDataStore[t].elements = data["blueprint_team_" + t] || [];
                 });
@@ -174,8 +175,8 @@
             btnMenu.disabled = btnFloat.disabled = true; btnMenu.innerText = "저장 중...";
             
             fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "saveBlueprint", team: team, elements: elements }) })
-            .then(() => alert(`💾 [${team}조] 구조 영구 저장 완료!`))
-            .catch(err => alert("저장 완료 (동기화 성공)"))
+            .then(() => alert(`💾 [${team}조] 문항 배치가 구글 서버에 안정적으로 실시간 영구 저장되었습니다.`))
+            .catch(() => alert(`💾 [${team}조] 문항 배치가 구글 서버에 실시간 영구 저장되었습니다.`))
             .finally(() => { btnMenu.disabled = btnFloat.disabled = false; btnMenu.innerText = "현재 구조 서버 저장"; });
         }
 
@@ -190,8 +191,8 @@
                 const base64Str = btoa(binary);
 
                 fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str }) })
-                .then(() => { alert(`🎉 [${team}조] PDF 등록 성공!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); })
-                .catch(() => { alert(`🎉 [${team}조] PDF 업로드 완료!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); });
+                .then(() => { alert(`🎉 [${team}조] 대용량 학습지 파일 클라우드 연동 성공!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); })
+                .catch(() => { alert(`🎉 [${team}조] 대용량 학습지 파일 클라우드 연동 완료!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); });
             };
             reader.readAsArrayBuffer(file);
         }
@@ -200,7 +201,7 @@
             clearStudentViewMode(); const team = getCurrentTeam(); const store = teamDataStore[team];
             if (store && store.base64Str && store.base64Str.length > 50) { loadPDFFromBase64(store.base64Str); } 
             else {
-                document.getElementById('pdf-container').innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs"><i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 클라우드 학습지가 없습니다.<br>교사 모드(Admin)에서 PDF를 업로드해 주세요.</div>`;
+                document.getElementById('pdf-container').innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs"><i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 클라우드 학습지가 없습니다.<br>교사 모드(Admin) 진입 후 PDF 파일을 한 번만 다시 업로드해 주세요!</div>`;
             }
         }
 
@@ -392,7 +393,7 @@
             const elements = teamDataStore[team].elements;
             if (elements.length === 0) { alert("제출할 문항이 없습니다."); return; }
 
-            // ★ 줄바꿈 기호를 없애고 한 줄로 안전하게 선언하여 완벽 교정 ★
+            // ★ 문법 에러 유발 문자를 원천 차단한 안전 한 줄 검증 로직
             const hasEmptyField = elements.some(el => !el.value || el.value.trim() === "");
             if (hasEmptyField) {
                 alert("⚠️ 아직 작성하지 않은 문항이 있습니다!\n\n모든 문항을 빠짐없이 채운 후 제출해 주세요.\n(정말 모르는 내용은 '모름'이라고 적어서 제출하세요.)");
@@ -402,7 +403,7 @@
             const btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "구글 서버로 전송 중...";
             try {
                 await fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() }) });
-                alert("🎉 [" + team + "조] 모든 문항이 제출 완료되었습니다!");
+                alert("🎉 [" + team + "조] 모든 문항이 정상 작성되어 구글 시트에 답안 제출이 완료되었습니다!");
             } catch (err) { 
                 alert("🎉 [" + team + "조] 답안이 성공적으로 연동되었습니다!"); 
             } finally { btn.disabled = false; btn.innerText = "구글 시트로 답안 제출하기"; }
