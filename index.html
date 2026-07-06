@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=3.0">
-    <title>조별 인터랙티브 PDF 학습지 플레이어</title>
+    <title>인터랙티브 디지털 학습지 & 교사용 통합 채점 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -11,7 +11,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;700&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; -webkit-text-size-adjust: none; }
         
-        /* PDF 원본 크기와 비율을 무조건 보존하고, 화면보다 크면 잘리지 않고 스크롤되도록 수정 */
         .pdf-page-container { position: relative; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); background: white; border-radius: 0.5rem; overflow: hidden; display: block; clear: both; }
         .overlay-element { position: absolute; border: 2px dashed #4f46e5; background: rgba(79, 70, 229, 0.05); cursor: move; box-sizing: border-box; }
         .student-element { position: absolute; box-sizing: border-box; }
@@ -22,25 +21,28 @@
         .student-textarea { border: 1px solid #cbd5e1; background: rgba(255,255,255,0.95); border-radius: 0.25rem; padding: 4px 6px; font-size: 13px; line-height: 1.3; width:100%; height:100%; resize:none; outline:none; }
         .student-textarea:focus { border-color:#4f46e5; background: #fff; }
         
-        .student-image-box { border: 2px dashed #64748b; background: rgba(241,245,249,0.9); border-radius: 0.375rem; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; width:100%; height:100%; overflow:hidden; position:relative; }
-        .student-image-box img { width:100%; height:100%; object-fit:contain; position:absolute; top:0; left:0; }
-        
-        .student-canvas-container { position: relative; width: 100%; height: 100%; background: rgba(255,255,255,0.8); border: 1px solid #94a3b8; border-radius: 0.375rem; overflow: hidden; display: flex; flex-direction: column; }
-        .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; background: #e2e8f0; padding: 4px 6px; font-size: 11px; border-bottom: 1px solid #cbd5e1; z-index: 5; shrink-0; }
+        .student-canvas-container { position: relative; width: 100%; height: 100%; background: rgba(255,255,255,0.95); border: 1px solid #94a3b8; border-radius: 0.375rem; overflow: hidden; display: flex; flex-direction: column; }
+        .canvas-toolbar { display: flex; flex-direction: column; bg: #f8fafc; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; z-index: 5; shrink-0; gap: 4px; }
         
         .student-canvas { cursor: crosshair; flex-grow: 1; width: 100%; height: 100%; background: transparent; touch-action: none; }
         .resize-handle { position: absolute; width: 14px; height: 14px; background: #4f46e5; right: -7px; bottom: -7px; cursor: se-resize; border-radius: 50%; z-index: 20; }
         
-        /* 모바일 메인 스크롤 영역: 내용물이 잘리지 않고 안전하게 스크롤 및 줌인/아웃을 받아줍니다. */
         .pdf-scroller { width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; align-items: center; }
+        
+        .color-pick-btn { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.1s; }
+        .color-pick-btn:hover { transform: scale(1.15); }
+        .color-pick-btn.active { ring: 2px offset 1px; ring-color: #4f46e5; transform: scale(1.1); }
+        
+        .viewer-text { border: 1px solid #6366f1; background: #e0e7ff; color: #1e1b4b; font-weight: bold; border-radius: 0.25rem; padding: 4px; font-size: 14px; width:100%; height:100%; overflow: hidden; text-overflow: ellipsis; }
+        .viewer-textarea { border: 1px solid #6366f1; background: #e0e7ff; color: #1e1b4b; font-weight: bold; border-radius: 0.25rem; padding: 4px 6px; font-size: 13px; line-height: 1.3; width:100%; height:100%; overflow-y:auto; resize:none; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
     <header class="bg-indigo-900 text-white px-4 py-3 shadow-md flex justify-between items-center z-10 shrink-0">
         <div class="flex items-center space-x-2">
-            <i class="fa-solid fa-users-viewfinder text-xl text-emerald-400"></i>
-            <h1 class="text-sm md:text-base font-bold tracking-tight">디지털 조별 맞춤형 학습지</h1>
+            <i class="fa-solid fa-graduation-cap text-xl text-emerald-400"></i>
+            <h1 class="text-sm md:text-base font-bold tracking-tight">스마트 디지털 교사용 통합 학습 시스템</h1>
         </div>
         <div class="flex items-center space-x-2">
             <span id="badge-mode" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500 text-white"><i class="fa-solid fa-user-graduate mr-1"></i>학생 모드</span>
@@ -62,17 +64,27 @@
             </div>
 
             <div id="panel-teacher" class="hidden space-y-4 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
-                <div class="text-center font-bold text-xs text-indigo-800 border-b pb-1.5 mb-1">🔒 교사용 문항 편집 메뉴</div>
-                <div>
-                    <h2 class="text-[11px] font-bold text-slate-500 uppercase mb-1">1단계: 학습지 PDF 파일 업로드</h2>
-                    <input type="file" id="pdf-file-input" accept="application/pdf" onchange="handlePDFUpload(event)" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 w-full">
+                <div class="text-center font-bold text-xs text-indigo-800 border-b pb-1.5 mb-1">🔒 교사 전용 관리자 메뉴</div>
+                
+                <div class="bg-white p-2 rounded-lg border border-indigo-200 shadow-inner space-y-2">
+                    <label class="block text-[11px] font-bold text-indigo-900"><i class="fa-solid fa-clipboard-check mr-1 text-emerald-500"></i> 📢 학생 제출 답안 채점</label>
+                    <button onclick="fetchStudentSubmissions()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-1.5 rounded shadow">
+                         구글 시트에서 제출 현황 불러오기
+                    </button>
+                    <select id="select-student-submission" onchange="loadStudentResponseToCanvas()" class="w-full px-2 py-1 border rounded text-[11px] bg-slate-50 outline-none font-medium">
+                        <option value="">-- 제출 학생 선택 --</option>
+                    </select>
+                    <button id="btn-clear-view" onclick="clearStudentViewMode()" class="hidden w-full bg-slate-500 hover:bg-slate-600 text-white text-[10px] py-1 rounded">
+                         채점 종료 (답안 보기 해제)
+                    </button>
                 </div>
-                <div>
-                    <h2 class="text-[11px] font-bold text-slate-500 uppercase mb-1">2단계: 문항 종류 선택 후 PDF 클릭</h2>
+
+                <div class="border-t pt-2">
+                    <h2 class="text-[11px] font-bold text-slate-500 uppercase mb-1">문항 배치 도구 선택 후 도화지 클릭</h2>
                     <div class="grid grid-cols-3 gap-1">
                         <button onclick="setTool('text')" id="tool-text" class="py-2 px-1 border rounded text-center text-[11px] font-medium bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200">단답형</button>
                         <button onclick="setTool('textarea')" id="tool-textarea" class="py-2 px-1 border rounded text-center text-[11px] font-medium bg-slate-50">서술형</button>
-                        <button onclick="setTool('multimedia')" id="tool-multimedia" class="py-2 px-1 border rounded text-center text-[11px] font-medium bg-slate-50">멀티미디어</button>
+                        <button onclick="setTool('multimedia')" id="tool-multimedia" class="py-2 px-1 border rounded text-center text-[11px] font-medium bg-slate-50">그림판</button>
                     </div>
                 </div>
                 <div class="border-t pt-2 grid grid-cols-2 gap-1">
@@ -84,16 +96,16 @@
             <div id="panel-student" class="space-y-3">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-700 mb-0.5">학번 (예: 10101)</label>
-                        <input type="text" id="student-id" class="w-full px-2 py-1.5 border rounded text-xs outline-none">
+                        <label class="block text-[11px] font-bold text-slate-700 mb-0.5">학번 (5자리)</label>
+                        <input type="text" id="student-id" placeholder="예: 10203" class="w-full px-2 py-1.5 border rounded text-xs outline-none">
                     </div>
                     <div>
                         <label class="block text-[11px] font-bold text-slate-700 mb-0.5">이름</label>
-                        <input type="text" id="student-name" class="w-full px-2 py-1.5 border rounded text-xs outline-none">
+                        <input type="text" id="student-name" placeholder="홍길동" class="w-full px-2 py-1.5 border rounded text-xs outline-none">
                     </div>
                 </div>
                 <div class="pt-2 border-t">
-                    <button id="btn-submit" onclick="submitWorksheet()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg shadow flex items-center justify-center text-xs">
+                    <button id="btn-submit" onclick="submitWorksheet()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg shadow flex items-center justify-center text-xs">
                         <i class="fa-solid fa-paper-plane mr-1.5"></i>구글 시트로 답안 제출하기
                     </button>
                 </div>
@@ -102,7 +114,7 @@
 
         <main class="flex-grow p-3 md:p-6 overflow-auto max-h-[calc(100vh-53px)] pdf-scroller">
             <div id="pdf-container" class="w-full flex flex-col items-center">
-                <div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">소속 조를 선택하면 활동지 파일이 로드됩니다.</div>
+                <div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">학습지를 불러오는 중입니다...</div>
             </div>
         </main>
     </div>
@@ -110,21 +122,34 @@
     <div class="fixed bottom-1 right-1 text-[9px] text-slate-300 pointer-events-none select-none">Admin: F2</div>
 
     <script>
-        // ★★★ [설정 연결] 구글에서 복사해온 웹 앱 URL 주소를 넣어주세요 ★★★
-        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbxIPPlHWJqFHjG6d8gFe9xhB6sfFRTPJi3rO5Eguci77qDnDBfQgro7agFe2LazebOr/exec";
-
-        const TEAM_PDF_URLS = { "1": "", "2": "", "3": "", "4": "" };
+        // ==========================================
+        // ★ [교사용 설정] 조별 PDF 주소를 각각 입력해 주세요! ★
+        // ==========================================
+        const PDF_URLS_BY_TEAM = {
+            "1": "https://docs.google.com/uc?export=download&id=1DoueYsPUZNkdeXh-R5YyHJ9RNRtblWkQ",
+            "2": "https://docs.google.com/uc?export=download&id=11pl2-qscgpSIn2l5n6aj3NeZQr6CxnRG",
+            "3": "https://docs.google.com/uc?export=download&id=1-3t_wb8HP5bPgqk_oyQQYTx96xhjl6zK",
+            "4": "https://docs.google.com/uc?export=download&id=12aGfv8v5jZzkwrjI806mkRVnuxWUVJqV"
+        };
+        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbygSTP7Jk3n3T-Pa3-njcFV-rpGE_dsPsWL8ApfPzBEpnwQHsK31HC6TUcecKFGlw/exec";
         const TEACHER_PASSWORD = "4505"; 
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         let pdfDoc = null, pdfScale = 1.3, currentMode = 'student', currentTool = 'text'; 
+        let globalSubmissions = []; 
+        let currentViewingStudentIndex = null; 
         
         let teamDataStore = {
-            "1": { elements: [], pdfBuffer: null },
-            "2": { elements: [], pdfBuffer: null },
-            "3": { elements: [], pdfBuffer: null },
-            "4": { elements: [], pdfBuffer: null }
+            "1": { elements: [], pdfBuffer: null, initialized: false },
+            "2": { elements: [], pdfBuffer: null, initialized: false },
+            "3": { elements: [], pdfBuffer: null, initialized: false },
+            "4": { elements: [], pdfBuffer: null, initialized: false }
         };
+
+        // 초기 시작 시 1조 학습지를 기본으로 로드 시도
+        window.addEventListener('DOMContentLoaded', () => {
+            handleTeamChange();
+        });
 
         window.addEventListener('keydown', function(e) { if (e.key === 'F2') { e.preventDefault(); triggerAdminAuth(); } });
 
@@ -134,17 +159,32 @@
             else if (inputPw !== null) { alert("비밀번호가 올바르지 않습니다."); }
         }
 
-        function exitTeacherMode() { alert("학생 모드로 복귀합니다."); switchMode('student'); }
+        function exitTeacherMode() { clearStudentViewMode(); alert("학생 모드로 복귀합니다."); switchMode('student'); }
         function getCurrentTeam() { return document.getElementById('select-team').value; }
 
+        // 조가 선택/변경되었을 때 실행되는 함수 (각 조의 전용 PDF 주소를 동적으로 다운로드)
         function handleTeamChange() {
-            const team = getCurrentTeam(); const container = document.getElementById('pdf-container'); container.innerHTML = '';
+            clearStudentViewMode();
+            const team = getCurrentTeam(); 
+            const container = document.getElementById('pdf-container'); 
             const store = teamDataStore[team];
-            if (store.pdfBuffer) { loadPDF(store.pdfBuffer, false); } 
-            else if (TEAM_PDF_URLS[team]) {
-                fetch(TEAM_PDF_URLS[team]).then(res => res.arrayBuffer()).then(buffer => { store.pdfBuffer = buffer; loadPDF(buffer, false); });
+            const targetUrl = PDF_URLS_BY_TEAM[team];
+
+            if (store.pdfBuffer) { 
+                loadPDF(store.pdfBuffer); 
+            } else if (targetUrl && !targetUrl.includes("★")) {
+                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">제 ${team}조 학습지 PDF를 원격 로드 중입니다...</div>`;
+                fetch(targetUrl)
+                    .then(res => { if(!res.ok) throw new Error(); return res.arrayBuffer(); })
+                    .then(buffer => {
+                        store.pdfBuffer = buffer;
+                        loadPDF(buffer);
+                    })
+                    .catch(() => {
+                        container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-red-400 mt-6 text-xs">${team}조 PDF 주소가 올바르지 않거나 공유 권한 권한이 없습니다.</div>`;
+                    });
             } else {
-                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">${currentMode === 'teacher' ? '왼쪽에서 PDF를 먼저 업로드해 주세요.' : '등록된 학습지가 없습니다. 선생님께 문의해 주세요.'}</div>`;
+                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">교사 코드 설정에서 [제 ${team}조] 전용 PDF 직접링크를 채워주세요.</div>`;
             }
         }
 
@@ -171,13 +211,7 @@
             });
         }
 
-        function handlePDFUpload(event) {
-            const file = event.target.files[0]; if (!file) return;
-            const reader = new FileReader(); reader.onload = function(e) { loadPDF(e.target.result, true); }; reader.readAsArrayBuffer(file);
-        }
-
-        async function loadPDF(arrayBuffer, saveToStore) {
-            const team = getCurrentTeam(); if (saveToStore) teamDataStore[team].pdfBuffer = arrayBuffer;
+        async function loadPDF(arrayBuffer) {
             const container = document.getElementById('pdf-container'); container.innerHTML = '';
             pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             
@@ -193,16 +227,17 @@
 
                 const interactiveLayer = document.createElement('div'); interactiveLayer.className = 'absolute inset-0 z-10';
                 interactiveLayer.addEventListener('mousedown', function(e) {
-                    if (currentMode !== 'teacher' || e.target !== interactiveLayer) return;
+                    if (currentMode !== 'teacher' || currentViewingStudentIndex !== null || e.target !== interactiveLayer) return;
                     const rect = interactiveLayer.getBoundingClientRect();
                     let w = 140, h = 26;
                     if (currentTool === 'textarea') { w = 200; h = 36; } 
-                    else if (currentTool === 'multimedia') { w = 240; h = 160; }
+                    else if (currentTool === 'multimedia') { w = 280; h = 200; }
 
+                    const team = getCurrentTeam();
                     teamDataStore[team].elements.push({
                         id: 'el-' + Date.now(), page: pageNum, type: currentTool,
                         left: ((e.clientX - rect.left) / rect.width) * 100, top: ((e.clientY - rect.top) / rect.height) * 100,
-                        width: (w / rect.width) * 100, height: (h / rect.height) * 100, value: "", activeTab: "canvas", canvasHistory: []
+                        width: (w / rect.width) * 100, height: (h / rect.height) * 100, value: "", canvasHistory: []
                     });
                     renderElements();
                 });
@@ -211,75 +246,180 @@
             renderElements();
         }
 
+        async function fetchStudentSubmissions() {
+            if (GOOGLE_GAS_URL.includes("★")) { alert("구글 URL 설정을 완료해야 불러오기가 가능합니다."); return; }
+            const selectEl = document.getElementById('select-student-submission');
+            selectEl.innerHTML = '<option value="">불러오는 중...</option>';
+            
+            try {
+                const response = await fetch(GOOGLE_GAS_URL + "?action=readSubmissions&t=" + Date.now());
+                const data = await response.json();
+                globalSubmissions = data;
+                
+                selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
+                const currentTeam = getCurrentTeam();
+                
+                let matchCount = 0;
+                data.forEach((sub, idx) => {
+                    if (String(sub.team) === String(currentTeam)) {
+                        const opt = document.createElement('option');
+                        opt.value = idx;
+                        opt.innerText = `[${sub.studentId}] ${sub.studentName} (${sub.timestamp.split(' ')[1] || '제출'})`;
+                        selectEl.appendChild(opt);
+                        matchCount++;
+                    }
+                });
+                if(matchCount === 0) alert(`${currentTeam}조에 해당하는 학생 제출 내역이 아직 구글 시트에 없습니다.`);
+                else alert(`총 ${matchCount}명의 학생 제출 정보를 불러왔습니다! 아래 메뉴에서 학생을 골라주세요.`);
+            } catch (err) {
+                selectEl.innerHTML = '<option value="">로드 실패</option>';
+                alert("구글 시트 연동 실패: 구글 앱스 스크립트 배포 설정을 확인해 주세요.");
+            }
+        }
+
+        function loadStudentResponseToCanvas() {
+            const val = document.getElementById('select-student-submission').value;
+            if (val === "") { clearStudentViewMode(); return; }
+            
+            currentViewingStudentIndex = parseInt(val);
+            document.getElementById('btn-clear-view').classList.remove('hidden');
+            
+            const studentData = globalSubmissions[currentViewingStudentIndex];
+            const currentTeam = getCurrentTeam();
+            
+            let responsesArray = [];
+            try {
+                responsesArray = typeof studentData.responses === 'string' ? JSON.parse(studentData.responses) : studentData.responses;
+            } catch(e) { responsesArray = []; }
+
+            teamDataStore[currentTeam].elements.forEach(el => {
+                const match = responsesArray.find(r => r.id === el.id);
+                if (match) { el.value = match.value; } else { el.value = ""; }
+            });
+            
+            renderElements();
+        }
+
+        function clearStudentViewMode() {
+            currentViewingStudentIndex = null;
+            document.getElementById('btn-clear-view').classList.add('hidden');
+            const selectWidget = document.getElementById('select-student-submission');
+            if (selectWidget) selectWidget.value = "";
+            const currentTeam = getCurrentTeam();
+            teamDataStore[currentTeam].elements.forEach(el => { el.value = ""; el.canvasHistory = []; });
+            renderElements();
+        }
+
         function renderElements() {
             document.querySelectorAll('.overlay-element, .student-element').forEach(el => el.remove());
             const team = getCurrentTeam();
+            const isViewingMode = (currentViewingStudentIndex !== null);
+
             teamDataStore[team].elements.forEach(el => {
                 const layer = document.getElementById(`page-container-${el.page}`)?.querySelector('div:not(canvas)'); if (!layer) return;
                 const wrap = document.createElement('div'); wrap.style.left = `${el.left}%`; wrap.style.top = `${el.top}%`; wrap.style.width = `${el.width}%`; wrap.style.height = `${el.height}%`;
 
-                if (currentMode === 'teacher') {
+                if (currentMode === 'teacher' && !isViewingMode) {
                     wrap.className = 'overlay-element';
-                    wrap.innerHTML = `<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/40">[${el.type}]</div>
+                    wrap.innerHTML = `<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/40">[${el.type === 'multimedia' ? '그림판' : el.type}]</div>
                                       <button onclick="deleteElement('${el.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button>
                                       <div class="resize-handle"></div>`;
                     setupDragAndResize(wrap, el);
                 } else {
                     wrap.className = 'student-element';
                     if (el.type === 'text') {
-                        const input = document.createElement('input'); input.type = 'text'; input.className = 'student-text'; input.placeholder = '답변 작성';
-                        input.value = el.value || ''; input.addEventListener('input', (e) => el.value = e.target.value); wrap.appendChild(input);
+                        if (isViewingMode) {
+                            const div = document.createElement('div'); div.className = 'viewer-text'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
+                        } else {
+                            const input = document.createElement('input'); input.type = 'text'; input.className = 'student-text'; input.placeholder = '단답형 답변 작성';
+                            input.value = el.value || ''; input.addEventListener('input', (e) => el.value = e.target.value); wrap.appendChild(input);
+                        }
                     } else if (el.type === 'textarea') {
-                        const ta = document.createElement('textarea'); ta.className = 'student-textarea'; ta.placeholder = '내용 입력...';
-                        ta.value = el.value || ''; ta.addEventListener('input', (e) => el.value = e.target.value); wrap.appendChild(ta);
+                        if (isViewingMode) {
+                            const div = document.createElement('div'); div.className = 'viewer-textarea'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
+                        } else {
+                            const ta = document.createElement('textarea'); ta.className = 'student-textarea'; ta.placeholder = '서술형 답변 내용을 입력하세요...';
+                            ta.value = el.value || ''; ta.addEventListener('input', (e) => el.value = e.target.value); wrap.appendChild(ta);
+                        }
                     } else if (el.type === 'multimedia') {
-                        const container = document.createElement('div'); container.className = "w-full h-full flex flex-col bg-white border border-slate-300 rounded shadow-sm overflow-hidden";
-                        const topTabs = document.createElement('div'); topTabs.className = "flex bg-slate-100 border-b border-slate-200 p-0.5 space-x-0.5 shrink-0 text-[10px]";
-                        
-                        const btnCanvas = document.createElement('button');
-                        btnCanvas.className = `flex-1 py-0.5 rounded text-center font-medium ${el.activeTab === 'canvas' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`;
-                        btnCanvas.innerHTML = `<i class="fa-solid fa-palette mr-0.5"></i>그림판`;
-                        
-                        const btnImage = document.createElement('button');
-                        btnImage.className = `flex-1 py-0.5 rounded text-center font-medium ${el.activeTab === 'image' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`;
-                        btnImage.innerHTML = `<i class="fa-solid fa-camera mr-0.5"></i>사진`;
-                        
-                        topTabs.appendChild(btnCanvas); topTabs.appendChild(btnImage); container.appendChild(topTabs);
-                        const contentArea = document.createElement('div'); contentArea.className = "flex-grow relative overflow-hidden w-full h-full"; container.appendChild(contentArea);
-
-                        btnCanvas.onclick = () => { el.activeTab = "canvas"; renderElements(); };
-                        btnImage.onclick = () => { el.activeTab = "image"; renderElements(); };
-
-                        if (el.activeTab === 'canvas') {
-                            const cvContainer = document.createElement('div'); cvContainer.className = "student-canvas-container";
+                        if (isViewingMode) {
+                            const box = document.createElement('div'); box.className = "w-full h-full bg-white border-2 border-indigo-500 rounded relative overflow-hidden flex flex-col";
+                            box.innerHTML = `<div class="bg-indigo-500 text-white font-bold text-[9px] px-1 py-0.5"><i class="fa-solid fa-palette"></i> 학생 그림판 제출 내용</div>`;
+                            const imgArea = document.createElement('div'); imgArea.className = "flex-grow relative bg-slate-50";
+                            if(el.value && el.value.indexOf("data:image") === 0) {
+                                const sImg = document.createElement('img'); sImg.src = el.value; sImg.className = "w-full h-full object-contain absolute inset-0"; imgArea.appendChild(sImg);
+                            } else {
+                                imgArea.innerHTML = `<div class="text-center text-slate-400 text-[10px] mt-8">그림 데이터 없음</div>`;
+                            }
+                            box.appendChild(imgArea); wrap.appendChild(box);
+                        } else {
+                            const cvContainer = document.createElement('div'); cvContainer.className = "student-canvas-container shadow-inner";
                             cvContainer.innerHTML = `
-                                <div class="canvas-toolbar">
-                                    <div class="flex space-x-1 items-center">
-                                        <button class="w-3.5 h-3.5 rounded-full bg-black border border-white" data-color="#000000"></button>
-                                        <button class="w-3.5 h-3.5 rounded-full bg-red-500 border border-white" data-color="#ef4444"></button>
-                                        <button class="w-3.5 h-3.5 rounded-full bg-blue-500 border border-white" data-color="#3b82f6"></button>
-                                        <button class="px-1 py-0.5 bg-slate-300 rounded text-[9px] font-bold text-slate-700 ml-1" data-tool="eraser">지우개</button>
+                                <div class="canvas-toolbar flex flex-col p-1 bg-slate-50 border-b border-slate-200">
+                                    <div class="flex items-center justify-between w-full mb-1">
+                                        <div class="flex space-x-1 items-center bg-white p-1 rounded border">
+                                            <button class="color-pick-btn bg-black active" data-color="#000000"></button>
+                                            <button class="color-pick-btn bg-red-500" data-color="#ef4444"></button>
+                                            <button class="color-pick-btn bg-blue-500" data-color="#3b82f6"></button>
+                                            <button class="color-pick-btn bg-emerald-500" data-color="#10b981"></button>
+                                            <button class="color-pick-btn bg-amber-400" data-color="#f59e0b"></button>
+                                            <button class="color-pick-btn bg-purple-500" data-color="#a855f7"></button>
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <button class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-bold text-slate-700" data-tool="pen">펜</button>
+                                            <button class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-bold text-slate-700" data-tool="eraser">지우개</button>
+                                            <button class="px-1.5 py-0.5 bg-slate-200 hover:bg-red-100 rounded text-[10px] font-bold text-red-600" data-tool="undo">되돌리기</button>
+                                        </div>
                                     </div>
-                                    <button class="px-1 py-0.5 bg-slate-300 rounded text-[9px] font-bold text-slate-700" data-tool="undo"><i class="fa-solid fa-rotate-left"></i> 되돌리기</button>
+                                    <div class="flex items-center space-x-2 w-full bg-white px-1.5 py-0.5 rounded border text-[9px] font-medium text-slate-500">
+                                        <span id="brush-label-txt">펜 굵기: 3px</span>
+                                        <input type="range" min="1" max="25" value="3" class="flex-grow accent-indigo-600 h-1" data-slider="size">
+                                    </div>
                                 </div>
                             `;
-                            const cv = document.createElement('canvas'); cv.className = 'student-canvas'; cvContainer.appendChild(cv); contentArea.appendChild(cvContainer);
+                            const cv = document.createElement('canvas'); cv.className = 'student-canvas'; cvContainer.appendChild(cv); wrap.appendChild(cvContainer);
 
                             setTimeout(() => {
                                 cv.width = cv.offsetWidth; cv.height = cv.offsetHeight;
                                 const ctx = cv.getContext('2d'); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                                let drawColor = "#000000"; let drawWidth = 2.5; let isEraser = false;
+                                
+                                let drawColor = "#000000"; let currentBrushMode = "pen"; 
+                                let penSize = 3; let eraserSize = 10;
 
-                                if (el.value && el.value.indexOf("data:image") === 0 && !el.imageLoadedFromUpload) {
-                                    const img = new Image(); img.onload = () => { ctx.drawImage(img, 0, 0); saveCanvasState(cv, el); }; img.src = el.value;
+                                if (el.value && el.value.indexOf("data:image") === 0) {
+                                    const img = new Image(); img.onload = () => { ctx.drawImage(img, 0, 0); if(!el.canvasHistory.length) saveCanvasState(cv, el); }; img.src = el.value;
                                 } else if(el.canvasHistory && el.canvasHistory.length > 0) {
                                     const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = el.canvasHistory[el.canvasHistory.length - 1];
                                 } else { saveCanvasState(cv, el); }
 
-                                cvContainer.querySelectorAll('[data-color]').forEach(b => {
-                                    b.onclick = () => { drawColor = b.getAttribute('data-color'); drawWidth = 2.5; isEraser = false; };
+                                const colorBtns = cvContainer.querySelectorAll('.color-pick-btn');
+                                colorBtns.forEach(b => {
+                                    b.onclick = () => {
+                                        colorBtns.forEach(c => c.classList.remove('active')); b.classList.add('active');
+                                        drawColor = b.getAttribute('data-color'); currentBrushMode = "pen";
+                                        cvContainer.querySelector('#brush-label-txt').innerText = `펜 굵기: ${penSize}px`;
+                                        cvContainer.querySelector('[data-slider="size"]').value = penSize;
+                                    };
                                 });
-                                cvContainer.querySelector('[data-tool="eraser"]').onclick = () => { isEraser = true; drawWidth = 12; };
+
+                                cvContainer.querySelector('[data-tool="pen"]').onclick = () => {
+                                    currentBrushMode = "pen";
+                                    cvContainer.querySelector('#brush-label-txt').innerText = `펜 굵기: ${penSize}px`;
+                                    cvContainer.querySelector('[data-slider="size"]').value = penSize;
+                                };
+                                cvContainer.querySelector('[data-tool="eraser"]').onclick = () => {
+                                    currentBrushMode = "eraser";
+                                    cvContainer.querySelector('#brush-label-txt').innerText = `지우개 굵기: ${eraserSize}px`;
+                                    cvContainer.querySelector('[data-slider="size"]').value = eraserSize;
+                                };
+
+                                const sizeSlider = cvContainer.querySelector('[data-slider="size"]');
+                                sizeSlider.oninput = (e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (currentBrushMode === "pen") { penSize = val; cvContainer.querySelector('#brush-label-txt').innerText = `펜 굵기: ${penSize}px`; } 
+                                    else { eraserSize = val; cvContainer.querySelector('#brush-label-txt').innerText = `지우개 굵기: ${eraserSize}px`; }
+                                };
+
                                 cvContainer.querySelector('[data-tool="undo"]').onclick = () => {
                                     if (el.canvasHistory && el.canvasHistory.length > 1) {
                                         el.canvasHistory.pop(); const prevState = el.canvasHistory[el.canvasHistory.length - 1];
@@ -288,28 +428,16 @@
                                         ctx.clearRect(0, 0, cv.width, cv.height); el.canvasHistory = []; el.value = ""; saveCanvasState(cv, el);
                                     }
                                 };
-                                setupDrawing(cv, ctx, el, () => isEraser ? "#ffffff" : drawColor, () => drawWidth);
-                            }, 40);
-                        } else {
-                            const box = document.createElement('div'); box.className = 'student-image-box';
-                            const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.capture = 'camera'; fi.className = 'hidden';
-                            box.innerHTML = `<div class="text-center p-1"><i class="fa-solid fa-camera text-slate-400 text-sm"></i><p class="text-[10px] text-slate-500 mt-0.5">촬영/업로드</p></div>`;
-                            if (el.value && el.value.indexOf("data:image") === 0) { const img = document.createElement('img'); img.src = el.value; box.appendChild(img); }
-                            box.appendChild(fi); box.addEventListener('click', () => fi.click());
-                            fi.addEventListener('change', (e) => {
-                                const f = e.target.files[0]; if (!f) return;
-                                const r = new FileReader(); r.onload = (evt) => { el.value = evt.target.result; el.imageLoadedFromUpload = true; renderElements(); }; r.readAsDataURL(f);
-                            });
-                            contentArea.appendChild(box);
+                                setupDrawing(cv, ctx, el, () => currentBrushMode === "eraser" ? "#ffffff" : drawColor, () => currentBrushMode === "eraser" ? eraserSize : penSize);
+                            }, 50);
                         }
-                        wrap.appendChild(container);
                     }
                 }
                 layer.appendChild(wrap);
             });
         }
 
-        function saveCanvasState(canvas, elObj) { if(!elObj.canvasHistory) elObj.canvasHistory = []; elObj.canvasHistory.push(canvas.toDataURL()); elObj.value = canvas.toDataURL(); elObj.imageLoadedFromUpload = false; }
+        function saveCanvasState(canvas, elObj) { if(!elObj.canvasHistory) elObj.canvasHistory = []; elObj.canvasHistory.push(canvas.toDataURL()); elObj.value = canvas.toDataURL(); }
         
         function setupDrawing(cv, ctx, elObj, getColor, getWidth) {
             let active = false;
@@ -326,26 +454,21 @@
 
         function setupDragAndResize(wrap, elObj) {
             let isDrag = false, isResize = false, sx, sy, sl, st, sw, sh;
-            
             function handleStart(clientX, clientY, target) {
                 const pRect = wrap.parentElement.getBoundingClientRect();
                 if (target.classList.contains('resize-handle')) { isResize = true; sx = clientX; sy = clientY; sw = parseFloat(wrap.style.width); sh = parseFloat(wrap.style.height); }
                 else { isDrag = true; sx = clientX; sy = clientY; sl = parseFloat(wrap.style.left); st = parseFloat(wrap.style.top); }
-                
                 function move(moveClientX, moveClientY) {
                     if (isResize) { elObj.width = Math.max(8, sw + ((moveClientX - sx) / pRect.width) * 100); elObj.height = Math.max(4, sh + ((moveClientY - sy) / pRect.height) * 100); wrap.style.width = elObj.width + '%'; wrap.style.height = elObj.height + '%'; }
                     else if (isDrag) { elObj.left = Math.max(0, Math.min(100 - elObj.width, sl + ((moveClientX - sx) / pRect.width) * 100)); elObj.top = Math.max(0, Math.min(100 - elObj.height, st + ((moveClientY - sy) / pRect.height) * 100)); wrap.style.left = elObj.left + '%'; wrap.style.top = elObj.top + '%'; }
                 }
-                
                 function mouseMoveHandler(me) { move(me.clientX, me.clientY); }
                 function mouseUpHandler() { isDrag = isResize = false; document.removeEventListener('mousemove', mouseMoveHandler); document.removeEventListener('mouseup', mouseUpHandler); }
                 function touchMoveHandler(te) { if(te.touches.length === 1) { move(te.touches[0].clientX, te.touches[0].clientY); } }
                 function touchEndHandler() { isDrag = isResize = false; document.removeEventListener('touchmove', touchMoveHandler); document.removeEventListener('touchend', touchEndHandler); }
-                
                 document.addEventListener('mousemove', mouseMoveHandler); document.addEventListener('mouseup', mouseUpHandler);
                 document.addEventListener('touchmove', touchMoveHandler, { passive: false }); document.addEventListener('touchend', touchEndHandler);
             }
-
             wrap.addEventListener('mousedown', (e) => { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); handleStart(e.clientX, e.clientY, e.target); } });
             wrap.addEventListener('touchstart', (e) => { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.touches.length === 1) { handleStart(e.touches[0].clientX, e.touches[0].clientY, e.target); } });
         }
@@ -356,15 +479,21 @@
 
         async function submitWorksheet() {
             const team = getCurrentTeam(); const sid = document.getElementById('student-id').value.trim(); const sname = document.getElementById('student-name').value.trim();
-            if (!sid || !sname) { alert("학번과 이름을 입력하세요."); return; }
+            if (!sid || !sname) { alert("학번과 이름을 입력하셔야 제출이 가능합니다."); return; }
+            const elements = teamDataStore[team].elements;
+            if (elements.length === 0) { alert("제출할 문항이 배치되지 않은 학습지입니다."); return; }
+            for (let i = 0; i < elements.length; i++) {
+                const el = elements[i];
+                if (!el.value || el.value.trim() === "") { alert(`⚠️ 아직 풀지 않은 문제가 있습니다!\n모든 칸을 채우고 그림을 그려야 제출할 수 있습니다.`); return; }
+            }
             if (GOOGLE_GAS_URL.includes("★")) { alert("구글 URL 설정을 마쳐야 제출 가능합니다."); return; }
             const btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "제출 중...";
             try {
                 await fetch(GOOGLE_GAS_URL, {
                     method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: teamDataStore[team].elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() })
+                    body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() })
                 });
-                alert("[" + team + "조] 답안이 무사히 제출되었습니다!");
+                alert("🎉 [" + team + "조] 모든 문항이 정상 입력되어 구글 시트로 안전하게 제출되었습니다!");
             } catch (err) { alert("오류 발생: " + err.message); } finally { btn.disabled = false; btn.innerText = "구글 시트로 답안 제출하기"; }
         }
     </script>
