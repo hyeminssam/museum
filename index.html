@@ -134,6 +134,7 @@
         // ==========================================
         // ★ 구글 웹앱 URL 주소 입력 ★
         // ==========================================
+        // 주의: 마지막이 반드시 /exec 로 끝나야 하며 뒤에 ?action=... 등은 절대 붙이지 마세요!
         const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbyIj541KhENgNEdaGdl5HahWHlizpLnJrtBb29uQ_3WV8gAVdJiUGIAgSr3kBboDxeY/exec";
         const TEACHER_PASSWORD = "4505"; 
 
@@ -164,14 +165,26 @@
         function exitTeacherMode() { clearStudentViewMode(); alert("학생 모드로 복귀합니다."); switchMode('student'); }
         function getCurrentTeam() { return document.getElementById('select-team').value; }
 
+        // 깃허브 보안 정책(URL 매핑) 우회 및 클린 가공 함수
+        function getCleanUrl() {
+            let url = GOOGLE_GAS_URL.trim();
+            if (url.includes("?")) {
+                url = url.split("?")[0]; // 혹시라도 주소 뒤에 붙은 인자 제거
+            }
+            return url;
+        }
+
         async function fetchAllDataFromServer() {
             const container = document.getElementById('pdf-container');
-            if (GOOGLE_GAS_URL.includes("★")) {
+            const cleanUrl = getCleanUrl();
+            if (cleanUrl.includes("★")) {
                 container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs">구글 웹앱 URL 설정을 완료해 주세요.</div>`;
                 return;
             }
             try {
-                const response = await fetch(GOOGLE_GAS_URL + "?action=getPDFs&t=" + Date.now());
+                // 깃허브 캐시 방지 및 완벽한 주소 결합 규칙 적용
+                const targetUrl = `${cleanUrl}?action=getPDFs&t=${Date.now()}`;
+                const response = await fetch(targetUrl);
                 const data = await response.json();
                 
                 ["1", "2", "3", "4"].forEach(t => {
@@ -179,11 +192,11 @@
                     if (data["blueprint_team_" + t]) teamDataStore[t].elements = data["blueprint_team_" + t];
                 });
                 
-                // ★ [핵심 버그 수정 패치] 서버에서 모든 데이터 로드가 완료된 후에 비로소 렌더링 함수를 호출합니다.
                 handleTeamChange();
                 
             } catch(e) {
-                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-red-400 mt-6 text-xs">서버 동기화 실패: URL 주소를 확인하세요.</div>`;
+                console.error(e);
+                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-red-400 mt-6 text-xs">서버 동기화 실패: 구글 웹앱 배포 설정('모든 사용자')을 다시 확인하세요.</div>`;
             }
         }
 
@@ -192,13 +205,14 @@
             const elements = teamDataStore[team].elements;
             const btnMenu = document.getElementById('btn-save-blueprint');
             const btnFloat = document.getElementById('btn-floating-save');
+            const cleanUrl = getCleanUrl();
             
             btnMenu.disabled = btnFloat.disabled = true;
             btnMenu.innerText = "저장 중...";
             btnFloat.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>저장 중...</span>`;
 
             try {
-                await fetch(GOOGLE_GAS_URL, {
+                await fetch(cleanUrl, {
                     method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: "saveBlueprint", team: team, elements: elements })
                 });
@@ -220,6 +234,7 @@
             const team = getCurrentTeam();
             const reader = new FileReader();
             const container = document.getElementById('pdf-container');
+            const cleanUrl = getCleanUrl();
             container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 mt-6 text-xs font-bold animate-pulse">구글 클라우드 서버에 파일을 동기화 중입니다...</div>`;
 
             reader.onload = async function(e) {
@@ -230,7 +245,7 @@
                 const base64Str = btoa(binary);
 
                 try {
-                    await fetch(GOOGLE_GAS_URL, {
+                    await fetch(cleanUrl, {
                         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str })
                     });
@@ -336,11 +351,12 @@
         }
 
         async function fetchStudentSubmissions() {
-            if (GOOGLE_GAS_URL.includes("★")) return;
+            const cleanUrl = getCleanUrl();
+            if (cleanUrl.includes("★")) return;
             const selectEl = document.getElementById('select-student-submission');
             selectEl.innerHTML = '<option value="">불러오는 중...</option>';
             try {
-                const response = await fetch(GOOGLE_GAS_URL + "?action=readSubmissions&t=" + Date.now());
+                const response = await fetch(`${cleanUrl}?action=readSubmissions&t=${Date.now()}`);
                 const data = await response.json();
                 globalSubmissions = data;
                 selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
@@ -530,8 +546,9 @@
             const elements = teamDataStore[team].elements;
             if (elements.length === 0) { alert("제출할 문항이 없습니다."); return; }
             const btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "제출 중...";
+            const cleanUrl = getCleanUrl();
             try {
-                await fetch(GOOGLE_GAS_URL, {
+                await fetch(cleanUrl, {
                     method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ team: team, studentId: sid, studentName: sname, responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), timestamp: new Date().toLocaleString() })
                 });
