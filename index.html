@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>인터랙티브 디지털 학습지 & 교사용 통합 채점 시스템</title>
+    <title>국중박 학습지</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -34,7 +34,7 @@
     <header class="bg-indigo-900 text-white px-4 py-3 shadow-md flex justify-between items-center z-10 shrink-0">
         <div class="flex items-center space-x-2">
             <i class="fa-solid fa-graduation-cap text-xl text-emerald-400"></i>
-            <h1 class="text-sm md:text-base font-bold tracking-tight">국중박 학습지-잘하면 뽑기+아이스크림</h1>
+            <h1 class="text-sm md:text-base font-bold tracking-tight">국중박 학습지-잘하면 칭찬 뽑기+아이스크림</h1>
         </div>
         <div class="flex items-center space-x-2">
             <span id="badge-mode" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500 text-white"><i class="fa-solid fa-user-graduate mr-1"></i>학생 모드</span>
@@ -140,7 +140,7 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         let pdfDoc = null, pdfScale = 1.3, currentMode = 'student', currentTool = 'text'; 
         let currentZoom = 1;
-        const ZOOM_MIN = 1, ZOOM_MAX = 3.5;
+        const ZOOM_MIN = 0.5, ZOOM_MAX = 3.5;
         let globalSubmissions = []; let currentViewingStudentIndex = null; 
         let teamDataStore = {"1":{elements:[],base64Str:""},"2":{elements:[],base64Str:""},"3":{elements:[],base64Str:""},"4":{elements:[],base64Str:""}};
 
