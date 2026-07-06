@@ -10,7 +10,8 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;500;700&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; -webkit-text-size-adjust: none; }
-        .pdf-page-container { position: relative; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); background: white; border-radius: 0.5rem; overflow: hidden; display: block; clear: both; }
+        .pdf-page-container { position: relative; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); background: white; border-radius: 0.5rem; overflow: hidden; display: block; clear: both; max-width: 100%; }
+        .pdf-scroller { overscroll-behavior: contain; }
         .overlay-element { position: absolute; border: 2px dashed #4f46e5; background: rgba(79, 70, 229, 0.1); cursor: move; box-sizing: border-box; z-index: 30; }
         .student-element { position: absolute; box-sizing: border-box; z-index: 20; }
         .student-text { border: 1px solid #cbd5e1; background: rgba(255,255,255,0.95); border-radius: 0.25rem; padding: 4px; font-size: 14px; width:100%; height:100%; outline:none; }
@@ -128,6 +129,19 @@
 
         window.addEventListener('DOMContentLoaded', fetchAllDataFromServer);
         window.addEventListener('keydown', function(e) { if (e.key === 'F2') { e.preventDefault(); triggerAdminAuth(); } });
+
+        // [모바일 최적화] 화면 회전/크기 변경 시 PDF를 화면 폭에 맞춰 다시 렌더링
+        let resizeReloadTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeReloadTimer);
+            resizeReloadTimer = setTimeout(function() {
+                let team = getCurrentTeam();
+                let store = teamDataStore[team];
+                if (store && store.base64Str && store.base64Str.length > 50) {
+                    loadPDFFromBase64(store.base64Str);
+                }
+            }, 350);
+        });
 
         function triggerAdminAuth() {
             let inputPw = prompt("교사용 관리자 비밀번호를 입력하세요.");
@@ -254,6 +268,14 @@
             let container = document.getElementById('pdf-container'); container.innerHTML = '';
             try {
                 pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+                // [모바일 최적화] 화면 폭에 맞춰 배율을 자동 계산 → 좌우로 밀 필요 없이 위아래 스크롤만으로 전체가 보이게 함
+                let firstPage = await pdfDoc.getPage(1);
+                let baseViewport = firstPage.getViewport({ scale: 1 });
+                let availableWidth = container.clientWidth > 0 ? container.clientWidth : window.innerWidth;
+                let computedScale = (availableWidth - 8) / baseViewport.width;
+                pdfScale = Math.min(Math.max(computedScale, 0.3), 1.4); // 너무 작거나 크게 확대되지 않도록 상하한선 설정
+
                 for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
                     let page = await pdfDoc.getPage(pageNum); let viewport = page.getViewport({ scale: pdfScale });
                     let pageDiv = document.createElement('div'); pageDiv.id = 'page-container-' + pageNum; pageDiv.className = 'pdf-page-container';
