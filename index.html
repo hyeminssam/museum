@@ -8,25 +8,54 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;500;700&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; -webkit-text-size-adjust: none; }
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        body { font-family: 'Pretendard', system-ui, sans-serif; background-color: #f1f5f9; -webkit-text-size-adjust: none; }
         .pdf-page-container { position: relative; margin: 0 auto 2rem auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); background: white; border-radius: 0.5rem; overflow: hidden; display: block; clear: both; }
         .pdf-scroller { width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
         .pdf-scroller-inner { width: 100%; padding: 1rem max(1.5rem, env(safe-area-inset-left)) max(50vh, calc(env(safe-area-inset-bottom) + 40vh)) max(1.5rem, env(safe-area-inset-right)); box-sizing: border-box; }
         #pdf-zoom-stage { position: relative; }
         #pdf-container { transform-origin: 0 0; will-change: transform; }
-        .overlay-element { position: absolute; border: 2px dashed #4f46e5; background: rgba(79, 70, 229, 0.1); cursor: move; box-sizing: border-box; z-index: 30; }
-        .student-element { position: absolute; box-sizing: border-box; z-index: 20; }
+        .overlay-element { position: absolute; border: 2px dashed #4f46e5; background: rgba(79, 70, 229, 0.1); cursor: move; box-sizing: border-box; z-index: 30; touch-action: none; }
+        .student-element { position: absolute; box-sizing: border-box; z-index: 20; border-radius: 0.375rem; }
+        .student-element.missing { box-shadow: 0 0 0 3px #ef4444; animation: pulse-missing 1s ease-in-out 3; }
+        @keyframes pulse-missing { 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0.35); } }
+        @media (prefers-reduced-motion: reduce) { .student-element.missing { animation: none; } }
         .student-text { border: 1px solid #cbd5e1; background: rgba(255,255,255,0.95); border-radius: 0.25rem; padding: 4px; font-size: 14px; width:100%; height:100%; outline:none; }
         .student-text:focus { border-color:#4f46e5; background: #fff; }
         .student-textarea { border: 1px solid #cbd5e1; background: rgba(255,255,255,0.95); border-radius: 0.25rem; padding: 4px 6px; font-size: 13px; line-height: 1.3; width:100%; height:100%; resize:none; outline:none; }
         .student-textarea:focus { border-color:#4f46e5; background: #fff; }
         .student-canvas-container { position: relative; width: 100%; height: 100%; background: rgba(255,255,255,0.95); border: 1px solid #94a3b8; border-radius: 0.375rem; overflow: hidden; display: flex; flex-direction: column; }
-        .canvas-toolbar { display: flex; flex-direction: column; background: #f8fafc; padding: 6px; border-bottom: 1px solid #cbd5e1; z-index: 5; shrink-0; gap: 4px; }
-        .student-canvas { cursor: crosshair; flex-grow: 1; width: 100%; height: 100%; background: transparent; touch-action: none; }
-        .resize-handle { position: absolute; width: 14px; height: 14px; background: #4f46e5; right: -7px; bottom: -7px; cursor: se-resize; border-radius: 50%; z-index: 40; }
+        .student-canvas { flex: 1 1 auto; min-height: 0; width: 100%; background: transparent; touch-action: none; display: block; }
+        .pad-toolbar { display: flex; flex-direction: column; gap: 3px; padding: 4px 5px; background: #f8fafc; border-bottom: 1px solid #cbd5e1; flex-shrink: 0; }
+        .pad-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; flex-wrap: wrap; }
+        .pad-group { display: flex; align-items: center; gap: 2px; }
+        .pad-btn { height: 24px; min-width: 24px; padding: 0 5px; border-radius: 6px; font-size: 12px; color: #334155; display: inline-flex; align-items: center; justify-content: center; gap: 2px; }
+        .pad-btn:hover { background: #e2e8f0; }
+        .pad-btn.active { background: #4f46e5; color: #fff; }
+        .pad-btn:disabled { opacity: .3; pointer-events: none; }
+        .pad-caret { font-size: 8px; opacity: .7; }
+        .pad-sep { width: 1px; height: 16px; background: #cbd5e1; margin: 0 2px; }
+        .pad-swatch { width: 17px; height: 17px; border-radius: 50%; border: 1px solid rgba(0,0,0,.18); flex-shrink: 0; margin: 0 1px; }
+        .pad-swatch.active { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #4f46e5; }
+        .pad-custom { background: conic-gradient(#ef4444, #facc15, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444); position: relative; overflow: hidden; cursor: pointer; }
+        .pad-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .pad-size { width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; }
+        .pad-size:hover { background: #e2e8f0; }
+        .pad-size span { background: #334155; border-radius: 50%; display: block; flex-shrink: 0; }
+        .pad-size.active { background: #e0e7ff; box-shadow: inset 0 0 0 1.5px #4f46e5; }
+        .pad-btn:focus-visible, .pad-swatch:focus-visible, .pad-size:focus-visible, .pad-menu-item:focus-visible { outline: 2px solid #4f46e5; outline-offset: 1px; }
+        .pad-popover { position: fixed; z-index: 200; background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 12px 28px -8px rgba(15,23,42,.3); padding: 4px; min-width: 170px; }
+        .pad-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 13px; color: #1e293b; text-align: left; }
+        .pad-menu-item:hover { background: #f1f5f9; }
+        .pad-menu-item.active { background: #eef2ff; color: #4338ca; font-weight: 700; }
+        .pad-menu-item > i:first-child { width: 16px; text-align: center; }
+        .pad-menu-divider { height: 1px; background: #e2e8f0; margin: 4px 2px; }
+        .pad-overlay { position: fixed; inset: 0; z-index: 150; background: rgba(15,23,42,.65); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .pad-overlay .student-canvas-container { background: #fff; box-shadow: 0 20px 40px -10px rgba(0,0,0,.4); }
+        .resize-handle { position: absolute; width: 18px; height: 18px; background: #4f46e5; right: -9px; bottom: -9px; cursor: se-resize; border-radius: 50%; z-index: 40; touch-action: none; }
         .viewer-text { border: 1px solid #6366f1; background: #e0e7ff; color: #1e1b4b; font-weight: bold; border-radius: 0.25rem; padding: 4px; font-size: 14px; width:100%; height:100%; overflow: hidden; text-overflow: ellipsis; }
-        .viewer-textarea { border: 1px solid #6366f1; background: #e0e7ff; color: #1e1b4b; font-weight: bold; border-radius: 0.25rem; padding: 4px 6px; font-size: 13px; line-height: 1.3; width:100%; height:100%; overflow-y:auto; resize:none; }
+        .viewer-textarea { border: 1px solid #6366f1; background: #e0e7ff; color: #1e1b4b; font-weight: bold; border-radius: 0.25rem; padding: 4px 6px; font-size: 13px; line-height: 1.3; width:100%; height:100%; overflow-y:auto; white-space: pre-wrap; }
+        .viewer-empty { color: #b91c1c; background: #fee2e2; border-color: #fca5a5; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -45,7 +74,7 @@
     <div class="flex-grow flex flex-col lg:flex-row">
         <aside class="w-full lg:w-72 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 p-4 flex flex-col space-y-4 shrink-0">
             <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-                <label class="block text-xs font-bold text-slate-700 mb-1.5"><i class="fa-solid fa-people-group mr-1 text-indigo-600"></i> 소속 조 선택</label>
+                <label for="select-team" class="block text-xs font-bold text-slate-700 mb-1.5"><i class="fa-solid fa-people-group mr-1 text-indigo-600"></i> 소속 조 선택</label>
                 <select id="select-team" onchange="handleTeamChange()" class="w-full px-2.5 py-1.5 border rounded-lg text-xs bg-white font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="1">제 1 조 학습지</option>
                     <option value="2">제 2 조 학습지</option>
@@ -54,48 +83,66 @@
                 </select>
             </div>
 
+            <!-- ───────── 교사 패널 ───────── -->
             <div id="panel-teacher" class="hidden space-y-4 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
                 <div class="text-center font-bold text-xs text-indigo-800 border-b pb-1.5 mb-1">🔒 교사 전용 관리자 메뉴</div>
                 <div class="bg-amber-50 p-2 rounded-lg border border-amber-200 shadow-inner space-y-1.5">
-                    <label class="block text-[11px] font-bold text-amber-900"><i class="fa-solid fa-cloud-arrow-up mr-1 text-red-500"></i> ☁️ 원격 PDF 업로드</label>
+                    <label class="block text-[11px] font-bold text-amber-900"><i class="fa-solid fa-cloud-arrow-up mr-1 text-red-500"></i> 이 조의 PDF 학습지 올리기</label>
                     <input type="file" id="upload-pdf-file" accept="application/pdf" onchange="uploadPDFToServer(this)" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
+                    <p class="text-[10px] text-amber-800">새로 올리면 이 조의 이전 PDF를 대신합니다.</p>
                 </div>
                 <div class="border-t pt-2">
-                    <h2 class="text-[11px] font-bold text-slate-500 uppercase mb-1">문항 배치 도구</h2>
+                    <h2 class="text-[11px] font-bold text-slate-500 mb-1">문항 배치 도구 <span class="font-normal">(학습지를 눌러 칸 추가)</span></h2>
                     <div class="grid grid-cols-3 gap-1 mb-2">
-                        <button onclick="setTool('text')" id="tool-text" class="py-2 px-1 border rounded text-center text-[11px] font-medium bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200">단답형</button>
-                        <button onclick="setTool('textarea')" id="tool-textarea" class="py-2 px-1 border rounded text-center text-[11px] font-medium bg-slate-50">서술형</button>
-                        <button onclick="setTool('multimedia')" id="tool-multimedia" class="py-2 px-1 border rounded text-center text-[11px] font-medium bg-slate-50">그림판</button>
+                        <button onclick="setTool('text')" id="tool-text">단답형</button>
+                        <button onclick="setTool('textarea')" id="tool-textarea">서술형</button>
+                        <button onclick="setTool('multimedia')" id="tool-multimedia">그림판</button>
                     </div>
-                    <button id="btn-save-blueprint" onclick="saveBlueprintToServer()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold py-2 rounded shadow">
-                        <i class="fa-solid fa-floppy-disk mr-1"></i> 현재 구조 서버 저장
+                    <button id="btn-save-blueprint" onclick="saveBlueprintToServer()" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-[11px] font-bold py-2 rounded shadow">
+                        <i class="fa-solid fa-floppy-disk mr-1"></i> <span>현재 배치 저장</span>
                     </button>
+                    <p id="layout-status" class="text-[10px] text-center mt-1 text-slate-400">저장된 상태입니다.</p>
                 </div>
-                <div class="bg-white p-2 rounded-lg border border-indigo-200 shadow-inner space-y-2 pt-2 border-t">
-                    <label class="block text-[11px] font-bold text-indigo-900"><i class="fa-solid fa-clipboard-check mr-1 text-emerald-500"></i> 📢 학생 제출 답안 채점</label>
-                    <button onclick="fetchStudentSubmissions()" class="w-full bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-bold py-1.5 rounded shadow">제출 현황 불러오기</button>
-                    <select id="select-student-submission" onchange="loadStudentResponseToCanvas()" class="w-full px-2 py-1 border rounded text-[11px] bg-slate-50 outline-none font-medium">
+                <div class="bg-white p-2 rounded-lg border border-indigo-200 shadow-inner space-y-2">
+                    <label class="block text-[11px] font-bold text-indigo-900"><i class="fa-solid fa-clipboard-check mr-1 text-emerald-500"></i> 학생 답안 채점</label>
+                    <button onclick="fetchStudentSubmissions()" class="w-full bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-bold py-1.5 rounded shadow">이 조 제출 현황 불러오기</button>
+                    <select id="select-student-submission" onchange="onSubmissionSelect()" class="w-full px-2 py-1 border rounded text-[11px] bg-slate-50 outline-none font-medium">
                         <option value="">-- 제출 학생 선택 --</option>
                     </select>
-                    <button id="btn-clear-view" onclick="clearStudentViewMode()" class="hidden w-full bg-slate-500 hover:bg-slate-600 text-white text-[10px] py-1 rounded">채점 종료 (답안 보기 해제)</button>
+
+                    <div id="grade-panel" class="hidden space-y-1.5 border-t pt-2">
+                        <div id="grade-meta" class="text-[10px] text-slate-500"></div>
+                        <div class="grid grid-cols-2 gap-1">
+                            <button onclick="stepStudent(-1)" class="py-1 bg-slate-100 hover:bg-slate-200 rounded text-[10px] font-bold"><i class="fa-solid fa-chevron-left mr-1"></i>이전 학생</button>
+                            <button onclick="stepStudent(1)" class="py-1 bg-slate-100 hover:bg-slate-200 rounded text-[10px] font-bold">다음 학생<i class="fa-solid fa-chevron-right ml-1"></i></button>
+                        </div>
+                        <label for="grade-score" class="block text-[10px] font-bold text-slate-600">점수</label>
+                        <input id="grade-score" type="text" inputmode="decimal" class="w-full px-2 py-1 border rounded text-xs outline-none focus:ring-2 focus:ring-indigo-300" placeholder="예: 8">
+                        <label for="grade-feedback" class="block text-[10px] font-bold text-slate-600">피드백</label>
+                        <textarea id="grade-feedback" rows="3" class="w-full px-2 py-1 border rounded text-xs outline-none resize-none focus:ring-2 focus:ring-indigo-300" placeholder="학생에게 남길 말"></textarea>
+                        <button id="btn-save-grade" onclick="saveGrade()" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-bold py-1.5 rounded shadow">채점 저장</button>
+                        <button onclick="clearStudentViewMode()" class="w-full bg-slate-500 hover:bg-slate-600 text-white text-[10px] py-1 rounded">채점 종료 (답안 보기 해제)</button>
+                    </div>
                 </div>
             </div>
 
+            <!-- ───────── 학생 패널 ───────── -->
             <div id="panel-student" class="space-y-3">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-700 mb-0.5">학번 (5자리)</label>
-                        <input type="text" id="student-id" placeholder="예: 10203" class="w-full px-2 py-1.5 border rounded text-xs outline-none">
+                        <label for="student-id" class="block text-[11px] font-bold text-slate-700 mb-0.5">학번 (5자리)</label>
+                        <input type="text" id="student-id" inputmode="numeric" maxlength="5" placeholder="예: 10203" class="w-full px-2 py-1.5 border rounded text-xs outline-none focus:ring-2 focus:ring-emerald-300">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-700 mb-0.5">이름</label>
-                        <input type="text" id="student-name" placeholder="홍길동" class="w-full px-2 py-1.5 border rounded text-xs outline-none">
+                        <label for="student-name" class="block text-[11px] font-bold text-slate-700 mb-0.5">이름</label>
+                        <input type="text" id="student-name" placeholder="홍길동" class="w-full px-2 py-1.5 border rounded text-xs outline-none focus:ring-2 focus:ring-emerald-300">
                     </div>
                 </div>
                 <div class="pt-2 border-t">
-                    <button id="btn-submit" onclick="submitWorksheet()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg shadow flex items-center justify-center text-xs">
-                        <i class="fa-solid fa-paper-plane mr-1.5"></i>구글 시트로 답안 제출하기
+                    <button id="btn-submit" onclick="submitWorksheet()" class="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-bold py-3 rounded-lg shadow flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-paper-plane mr-1.5"></i><span>답안 제출하기</span>
                     </button>
+                    <p id="draft-status" class="text-[10px] text-slate-400 text-center mt-1.5">작성한 답은 이 기기에 자동 저장됩니다.</p>
                 </div>
             </div>
         </aside>
@@ -105,7 +152,7 @@
                 <div id="pdf-zoom-stage">
                     <div id="pdf-container" class="w-full">
                         <div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-xs font-bold animate-pulse">
-                            <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 구글 클라우드 연결 중...
+                            <i class="fa-solid fa-sync animate-spin mr-1.5"></i> 학습지 서버에 연결하는 중...
                         </div>
                     </div>
                 </div>
@@ -114,454 +161,1066 @@
     </div>
 
     <div id="zoom-controls" class="fixed bottom-6 left-4 z-50 flex flex-col space-y-2">
-        <button onclick="zoomIn()" aria-label="확대" class="w-9 h-9 rounded-full bg-white text-indigo-600 border border-slate-300 shadow-lg flex items-center justify-center text-sm active:scale-95 transition-transform">
-            <i class="fa-solid fa-plus"></i>
-        </button>
-        <button onclick="zoomOut()" aria-label="축소" class="w-9 h-9 rounded-full bg-white text-indigo-600 border border-slate-300 shadow-lg flex items-center justify-center text-sm active:scale-95 transition-transform">
-            <i class="fa-solid fa-minus"></i>
-        </button>
+        <button onclick="zoomIn()" aria-label="확대" class="w-9 h-9 rounded-full bg-white text-indigo-600 border border-slate-300 shadow-lg flex items-center justify-center text-sm active:scale-95 transition-transform"><i class="fa-solid fa-plus"></i></button>
+        <button onclick="zoomOut()" aria-label="축소" class="w-9 h-9 rounded-full bg-white text-indigo-600 border border-slate-300 shadow-lg flex items-center justify-center text-sm active:scale-95 transition-transform"><i class="fa-solid fa-minus"></i></button>
     </div>
 
     <div id="floating-save-container" class="hidden fixed bottom-6 right-6 z-50">
-        <button id="btn-floating-save" onclick="saveBlueprintToServer()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-3 rounded-full shadow-2xl flex items-center space-x-2 text-xs md:text-sm transition-all transform hover:scale-105 active:scale-95">
-            <i class="fa-solid fa-cloud-arrow-up text-base text-amber-300"></i><span>현재 배치 저장하기</span>
+        <button id="btn-floating-save" onclick="saveBlueprintToServer()" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold px-4 py-3 rounded-full shadow-2xl flex items-center space-x-2 text-xs md:text-sm transition-transform hover:scale-105 active:scale-95">
+            <i class="fa-solid fa-cloud-arrow-up text-base text-amber-300"></i><span>현재 배치 저장</span>
         </button>
     </div>
-    
-    <button onclick="triggerAdminAuth()" class="fixed bottom-0 right-0 text-[11px] font-bold text-white bg-indigo-600 border border-indigo-700 rounded-tl-xl px-4 py-2.5 z-50 shadow-2xl transition-all active:bg-indigo-800">교사모드(Admin)</button>
+
+    <button id="btn-admin" onclick="triggerAdminAuth()" class="fixed bottom-0 right-0 text-[11px] font-bold text-white bg-indigo-600 border border-indigo-700 rounded-tl-xl px-4 py-2.5 z-50 shadow-2xl active:bg-indigo-800">교사모드(Admin)</button>
 
     <script>
         // ==========================================
-        // ★ 구글 웹앱 URL 주소 입력 ★
+        // ★ 구글 웹앱 URL 주소 ★
+        // (비밀번호는 이제 서버 code.js 의 setTeacherPassword() 로 설정합니다)
         // ==========================================
-        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbzCAQ_YCe8NufKS2bQq7jr30KD6MUz4GZod7jUNCHZGm8Abb2Ry1ISvSck2yyFvHeqL/exec";
-        const TEACHER_PASSWORD = "4505"; 
+        const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbypkc9LIvvbeMe7wZZK-rYbnBwIp9IsH_6GX3Rlohw8PpHvDvW7fsdwu0xp91IJ7hce/exec";
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        let pdfDoc = null, pdfScale = 1.3, currentMode = 'student', currentTool = 'text'; 
-        let currentZoom = 1;
+        const TEAMS = ["1", "2", "3", "4"];
+        const TYPE_LABEL = { text: '단답형', textarea: '서술형', multimedia: '그림판' };
         const ZOOM_MIN = 0.5, ZOOM_MAX = 3.5;
-        let globalSubmissions = []; let currentViewingStudentIndex = null; 
-        let teamDataStore = {"1":{elements:[],base64Str:""},"2":{elements:[],base64Str:""},"3":{elements:[],base64Str:""},"4":{elements:[],base64Str:""}};
+        const MAX_PDF_MB = 25;
 
-        window.addEventListener('DOMContentLoaded', fetchAllDataFromServer);
-        window.addEventListener('keydown', function(e) { if (e.key === 'F2') { e.preventDefault(); triggerAdminAuth(); } });
+        let pdfScale = 1.3, currentMode = 'student', currentTool = 'text', currentZoom = 1;
+        let teacherToken = null;              // 교사 비밀번호 (새로고침하면 사라짐)
+        let layoutDirty = false;              // 저장 안 한 배치 변경이 있는지
+        let submissions = [];                 // 현재 조의 제출 목록
+        let viewingIndex = null;              // 채점 중인 학생 (submissions 배열 위치)
+        let viewingResponses = {};            // 채점 중인 학생 답 {문항id: 값} — 학습지 데이터와 분리
+        const imageCache = {};                // 드라이브 그림 {파일id: dataURL}
+        const teamDataStore = {};
+        TEAMS.forEach(t => teamDataStore[t] = { elements: [], base64Str: "" });
 
-        function triggerAdminAuth() {
-            let inputPw = prompt("교사용 관리자 비밀번호를 입력하세요.");
-            if (inputPw === TEACHER_PASSWORD) { alert("인증 성공!"); switchMode('teacher'); } 
-            else if (inputPw !== null) { alert("비밀번호가 일치하지 않습니다."); }
-        }
-        function exitTeacherMode() { clearStudentViewMode(); switchMode('student'); }
+        window.addEventListener('DOMContentLoaded', () => { setTool('text'); fetchAllDataFromServer(); });
+        window.addEventListener('keydown', e => { if (e.key === 'F2') { e.preventDefault(); triggerAdminAuth(); } });
+        window.addEventListener('beforeunload', e => { if (layoutDirty) { e.preventDefault(); e.returnValue = ''; } });
+        ['student-id', 'student-name'].forEach(id => document.getElementById(id).addEventListener('input', scheduleDraftSave));
+
         function getCurrentTeam() { return document.getElementById('select-team').value; }
-        function getCleanUrl() { let url = GOOGLE_GAS_URL.trim(); return url.includes("?") ? url.split("?")[0] : url; }
+        function getCleanUrl() { return GOOGLE_GAS_URL.trim().split("?")[0]; }
 
-        async function fetchAllDataFromServer() {
-            const cleanUrl = getCleanUrl();
-            if (cleanUrl.includes("★") || !cleanUrl) { handleTeamChange(); return; }
-            
-            const container = document.getElementById('pdf-container');
-            container.innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-sm font-bold animate-pulse"><i class="fa-solid fa-sync animate-spin mr-2"></i>서버에서 데이터를 다운로드 중입니다... (네트워크에 따라 수 초 소요)</div>';
+        // ─────────────── 서버 통신 (실패하면 진짜로 실패라고 알려줌) ───────────────
+        async function apiGet(params) {
+            const qs = new URLSearchParams({ ...params, t: Date.now() });
+            const res = await fetch(`${getCleanUrl()}?${qs}`);
+            if (!res.ok) throw new Error(`서버 응답 오류 (${res.status})`);
+            const data = await res.json();
+            if (data.status === 'error') throw new Error(data.message || '서버 오류');
+            return data;
+        }
+        async function apiPost(action, payload = {}) {
+            const res = await fetch(getCleanUrl(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action, token: teacherToken, ...payload })
+            });
+            if (!res.ok) throw new Error(`서버 응답 오류 (${res.status})`);
+            let data;
+            try { data = await res.json(); } catch { throw new Error('서버 응답을 읽지 못했습니다. 웹앱을 "새 버전"으로 다시 배포했는지 확인해 주세요.'); }
+            if (data.status !== 'success') throw new Error(data.message || '서버 오류');
+            return data;
+        }
+        function networkMessage(err) {
+            return (err instanceof TypeError) ? '인터넷 연결을 확인한 뒤 다시 시도해 주세요.' : err.message;
+        }
 
+        // ─────────────── 교사 인증 ───────────────
+        async function triggerAdminAuth() {
+            if (currentMode === 'teacher') return;
+            const pw = prompt("교사용 관리자 비밀번호를 입력하세요.");
+            if (pw === null || pw === '') return;
+            const btn = document.getElementById('btn-admin');
+            btn.disabled = true; btn.innerText = '확인 중...';
             try {
-                // [속도 개선] 1단계: 용량이 작은 문항 배치 정보만 먼저 빠르게 불러오기
-                const bpResponse = await fetch(`${cleanUrl}?action=getBlueprints&t=${Date.now()}`);
-                if (!bpResponse.ok) throw new Error("네트워크 응답 오류");
-                const bpData = await bpResponse.json();
-                ["1", "2", "3", "4"].forEach(t => {
-                    teamDataStore[t].elements = bpData["blueprint_team_" + t] || [];
-                });
-
-                // [속도 개선] 2단계: 현재 선택된 조의 PDF 실물만 우선 로딩 (나머지 조는 선택할 때 그때 로딩)
-                await loadTeamPDFIfNeeded(getCurrentTeam());
-                handleTeamChange();
+                teacherToken = pw;
+                await apiPost('verifyTeacher');
+                switchMode('teacher');
             } catch (err) {
-                console.error("데이터 통신 에러:", err);
-                container.innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-red-500 mt-6 text-xs font-bold">서버 연결에 실패했습니다.<br>구글 웹앱 URL을 확인하시거나 네트워크 상태를 점검해주세요.</div>';
+                teacherToken = null;
+                alert(err instanceof TypeError ? networkMessage(err) : "비밀번호가 일치하지 않습니다.");
+            } finally { btn.disabled = false; btn.innerText = '교사모드(Admin)'; }
+        }
+        function exitTeacherMode() {
+            if (layoutDirty && !confirm("저장하지 않은 배치 변경이 있습니다. 그래도 편집을 종료할까요?")) return;
+            clearStudentViewMode(); teacherToken = null; switchMode('student');
+        }
+
+        // ─────────────── 처음 불러오기 ───────────────
+        async function fetchAllDataFromServer() {
+            const container = document.getElementById('pdf-container');
+            container.innerHTML = messageBox('서버에서 학습지를 받는 중입니다... (네트워크에 따라 몇 초 걸려요)', 'loading');
+            try {
+                const bp = await apiGet({ action: 'getBlueprints' });
+                TEAMS.forEach(t => {
+                    teamDataStore[t].elements = (bp["blueprint_team_" + t] || []).map(el => ({ ...el, value: "" }));
+                    restoreDraft(t);
+                });
+                await handleTeamChange();
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = messageBox(`서버에 연결하지 못했습니다.<br>${networkMessage(err)}<br><button onclick="fetchAllDataFromServer()" class="mt-3 px-3 py-1.5 bg-indigo-600 text-white rounded">다시 시도</button>`, 'error');
             }
         }
 
-        // [속도 개선] 특정 조의 PDF가 아직 캐시(다운로드)되지 않았을 때만 서버에서 받아옴
         async function loadTeamPDFIfNeeded(team) {
-            if (teamDataStore[team].base64Str && teamDataStore[team].base64Str.length > 50) return; // 이미 있으면 재다운로드 안 함
-            const res = await fetch(`${getCleanUrl()}?action=getPDF&team=${team}&t=${Date.now()}`);
-            if (!res.ok) throw new Error("PDF 로딩 실패");
-            const data = await res.json();
+            if (teamDataStore[team].base64Str) return;
+            const data = await apiGet({ action: 'getPDF', team });
             teamDataStore[team].base64Str = (data.pdf && data.pdf.length > 50) ? data.pdf : "";
         }
 
-        async function fetchStudentSubmissions() {
-            const selectEl = document.getElementById('select-student-submission'); 
-            selectEl.innerHTML = '<option value="">불러오는 중...</option>';
-            try {
-                const response = await fetch(`${getCleanUrl()}?action=readSubmissions&t=${Date.now()}`);
-                const data = await response.json();
-                globalSubmissions = data || []; 
-                selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
-                const currentTeam = getCurrentTeam();
-                globalSubmissions.forEach((sub, idx) => {
-                    if (String(sub.team) === String(currentTeam)) {
-                        const opt = document.createElement('option'); opt.value = idx; opt.innerText = `[${sub.studentId}] ${sub.studentName}`; selectEl.appendChild(opt);
-                    }
-                });
-            } catch (err) {
-                alert("제출 현황을 불러오지 못했습니다.");
-                selectEl.innerHTML = '<option value="">-- 제출 학생 선택 --</option>';
-            }
-        }
-
-        function saveBlueprintToServer() {
-            let team = getCurrentTeam(); let elements = teamDataStore[team].elements;
-            let btnMenu = document.getElementById('btn-save-blueprint'); let btnFloat = document.getElementById('btn-floating-save');
-            btnMenu.disabled = btnFloat.disabled = true; btnMenu.innerText = "저장 중...";
-            
-            fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "saveBlueprint", team: team, elements: elements }) })
-            .then(() => alert(`[${team}조] 문항 배치가 저장 완료되었습니다.`))
-            .catch(() => alert(`[${team}조] 문항 배치가 저장 완료되었습니다.`))
-            .finally(() => { btnMenu.disabled = btnFloat.disabled = false; btnMenu.innerText = "현재 구조 서버 저장"; });
-        }
-
-        function uploadPDFToServer(input) {
-            let file = input.files[0]; if (!file) return;
-            let team = getCurrentTeam(); let reader = new FileReader();
-            document.getElementById('pdf-container').innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-indigo-500 font-bold animate-pulse">구글 클라우드로 고속 업로드 중...</div>';
-
-            reader.onload = function(e) {
-                let bytes = new Uint8Array(e.target.result); let binary = '';
-                for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
-                let base64Str = btoa(binary);
-
-                fetch(getCleanUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "uploadPDF", team: team, pdfData: base64Str }) })
-                .then(() => { alert(`🎉 [${team}조] PDF 등록 성공!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); })
-                .catch(() => { alert(`🎉 [${team}조] PDF 연동 완료!`); teamDataStore[team].base64Str = base64Str; loadPDFFromBase64(base64Str); });
-            };
-            reader.readAsArrayBuffer(file);
+        function messageBox(html, kind) {
+            const color = kind === 'error' ? 'text-red-500' : kind === 'loading' ? 'text-indigo-500/80 animate-pulse' : 'text-slate-400';
+            const icon = kind === 'loading' ? '<i class="fa-solid fa-sync animate-spin mr-1.5"></i>' : '';
+            return `<div class="bg-white p-6 rounded-xl border text-center mt-6 text-xs font-bold ${color}">${icon}${html}</div>`;
         }
 
         async function handleTeamChange() {
-            clearStudentViewMode(); 
-            let team = getCurrentTeam(); let store = teamDataStore[team];
+            exitViewing();
+            resetSubmissionList('-- 제출 현황을 불러와 주세요 --');
+            const team = getCurrentTeam();
             const container = document.getElementById('pdf-container');
+            restoreStudentInfo(team);
 
-            if (store && store.base64Str && store.base64Str.length > 50) { 
-                loadPDFFromBase64(store.base64Str); 
-                return;
-            }
-
-            // [속도 개선] 이 조의 PDF를 아직 안 받았으면, 이때 서버에서 그 조 것만 받아옴
-            const cleanUrl = getCleanUrl();
-            if (!cleanUrl || cleanUrl.includes("★")) {
-                container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs"><i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 클라우드 학습지가 없습니다.<br>오른쪽 아래 교사 모드(Admin)를 켠 뒤 PDF 학습지 파일을 새로 업로드해 주세요.</div>`;
-                return;
-            }
-
-            container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-indigo-500/80 mt-6 text-xs font-bold animate-pulse"><i class="fa-solid fa-sync animate-spin mr-1.5"></i> [제 ${team}조] 학습지를 불러오는 중...</div>`;
-            try {
-                await loadTeamPDFIfNeeded(team);
-                if (teamDataStore[team].base64Str && teamDataStore[team].base64Str.length > 50) {
-                    loadPDFFromBase64(teamDataStore[team].base64Str);
-                } else {
-                    container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-slate-400 mt-6 text-xs"><i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 클라우드 학습지가 없습니다.<br>오른쪽 아래 교사 모드(Admin)를 켠 뒤 PDF 학습지 파일을 새로 업로드해 주세요.</div>`;
+            if (!teamDataStore[team].base64Str) {
+                container.innerHTML = messageBox(`[제 ${team}조] 학습지를 불러오는 중...`, 'loading');
+                try { await loadTeamPDFIfNeeded(team); }
+                catch (err) {
+                    console.error(err);
+                    container.innerHTML = messageBox(`학습지를 불러오지 못했습니다.<br>${networkMessage(err)}<br><button onclick="handleTeamChange()" class="mt-3 px-3 py-1.5 bg-indigo-600 text-white rounded">다시 시도</button>`, 'error');
+                    return;
                 }
-            } catch (err) {
-                console.error("팀 PDF 로딩 에러:", err);
-                container.innerHTML = '<div class="bg-white p-6 rounded-xl border text-center text-red-500 mt-6 text-xs font-bold">학습지를 불러오지 못했습니다.<br>네트워크 상태를 확인하고 다시 시도해주세요.</div>';
+            }
+            if (team !== getCurrentTeam()) return; // 불러오는 사이 다른 조를 고른 경우
+            if (teamDataStore[team].base64Str) {
+                loadPDFFromBase64(teamDataStore[team].base64Str);
+            } else {
+                container.innerHTML = messageBox(`<i class="fa-solid fa-cloud-arrow-up text-xl block mb-2 text-indigo-400"></i>[제 ${team}조] 등록된 학습지가 없습니다.<br>오른쪽 아래 교사 모드(Admin)를 켠 뒤 PDF 학습지를 올려 주세요.`);
             }
         }
 
         function loadPDFFromBase64(base64) {
             try {
-                let binaryStr = atob(base64); let len = binaryStr.length; let bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) { bytes[i] = binaryStr.charCodeAt(i); }
+                const bin = atob(base64); const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
                 loadPDF(bytes.buffer);
-            } catch(e) { handleTeamChange(); }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('pdf-container').innerHTML = messageBox('학습지 파일이 손상되었습니다. 교사 모드에서 PDF를 다시 올려 주세요.', 'error');
+            }
         }
 
-        function switchMode(mode) {
-            currentMode = mode; let badge = document.getElementById('badge-mode'); let exitBtn = document.getElementById('btn-exit-teacher');
-            let floatingSave = document.getElementById('floating-save-container');
-            if(mode === 'teacher') {
-                badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-600 text-white"; badge.innerHTML = '<i class="fa-solid fa-chalkboard-user mr-1"></i>교사 편집 모드';
-                exitBtn.classList.remove('hidden'); document.getElementById('panel-teacher').classList.remove('hidden'); document.getElementById('panel-student').classList.add('hidden'); floatingSave.classList.remove('hidden');
-            } else {
-                badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500 text-white"; badge.innerHTML = '<i class="fa-solid fa-user-graduate mr-1"></i>학생 모드';
-                exitBtn.classList.add('hidden'); document.getElementById('panel-teacher').classList.add('hidden'); document.getElementById('panel-student').classList.remove('hidden'); floatingSave.classList.add('hidden');
+        async function loadPDF(arrayBuffer) {
+            const container = document.getElementById('pdf-container');
+            container.innerHTML = '';
+            resetZoom();
+            const team = getCurrentTeam();
+            try {
+                const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                    const page = await pdfDoc.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: pdfScale });
+                    const pageDiv = document.createElement('div');
+                    pageDiv.id = 'page-container-' + pageNum; pageDiv.className = 'pdf-page-container';
+                    pageDiv.style.width = viewport.width + 'px'; pageDiv.style.height = viewport.height + 'px';
+
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'absolute top-0 left-0 z-0';
+                    canvas.width = viewport.width; canvas.height = viewport.height;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    pageDiv.appendChild(canvas);
+
+                    const layer = document.createElement('div');
+                    layer.className = 'absolute inset-0 z-10';
+                    // click 은 스크롤(스와이프)할 때는 생기지 않아서 태블릿에서도 칸이 잘못 생기지 않음
+                    layer.addEventListener('click', e => {
+                        if (currentMode !== 'teacher' || viewingIndex !== null || e.target !== layer) return;
+                        const rect = layer.getBoundingClientRect();
+                        const scale = rect.width / layer.offsetWidth; // 확대 배율
+                        let w = 140, h = 26;
+                        if (currentTool === 'textarea') { w = 200; h = 60; }
+                        else if (currentTool === 'multimedia') { w = 320; h = 240; }
+                        w *= scale; h *= scale;
+                        const left = Math.min((e.clientX - rect.left) / rect.width * 100, 100 - w / rect.width * 100);
+                        const top = Math.min((e.clientY - rect.top) / rect.height * 100, 100 - h / rect.height * 100);
+                        teamDataStore[getCurrentTeam()].elements.push({
+                            id: 'el-' + Date.now(), page: pageNum, type: currentTool,
+                            left, top, width: w / rect.width * 100, height: h / rect.height * 100, value: ""
+                        });
+                        markLayoutDirty(); renderElements();
+                    });
+                    pageDiv.appendChild(layer);
+                    container.appendChild(pageDiv);
+                    if (team !== getCurrentTeam()) return;
+                }
+                renderElements();
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = messageBox('PDF를 화면에 그리지 못했습니다. 파일을 다시 올려 주세요.', 'error');
             }
+        }
+
+        // ─────────────── 모드 / 도구 ───────────────
+        function switchMode(mode) {
+            currentMode = mode;
+            const badge = document.getElementById('badge-mode');
+            const isT = mode === 'teacher';
+            badge.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white ${isT ? 'bg-indigo-600' : 'bg-emerald-500'}`;
+            badge.innerHTML = isT ? '<i class="fa-solid fa-chalkboard-user mr-1"></i>교사 편집 모드' : '<i class="fa-solid fa-user-graduate mr-1"></i>학생 모드';
+            document.getElementById('btn-exit-teacher').classList.toggle('hidden', !isT);
+            document.getElementById('panel-teacher').classList.toggle('hidden', !isT);
+            document.getElementById('panel-student').classList.toggle('hidden', isT);
+            document.getElementById('floating-save-container').classList.toggle('hidden', !isT);
+            document.getElementById('btn-admin').classList.toggle('hidden', isT);
             renderElements();
         }
 
         function setTool(tool) {
             currentTool = tool;
             ['text', 'textarea', 'multimedia'].forEach(t => {
-                let btn = document.getElementById('tool-' + t);
-                if(btn) btn.className = t === tool ? 'py-2 px-1 border rounded text-center text-[11px] font-medium bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200' : 'py-2 px-1 border rounded text-center text-[11px] font-medium bg-slate-50';
+                document.getElementById('tool-' + t).className = 'py-2 px-1 border rounded text-center text-[11px] font-medium ' +
+                    (t === tool ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200' : 'bg-slate-50');
             });
         }
 
-        // ==========================================
-        // ★ 학습지 확대/축소 버튼 ★
-        // ==========================================
+        function markLayoutDirty() {
+            layoutDirty = true;
+            const s = document.getElementById('layout-status');
+            s.innerText = '저장하지 않은 변경이 있습니다.'; s.className = 'text-[10px] text-center mt-1 text-red-500 font-bold';
+        }
+
+        // ─────────────── 확대/축소 ───────────────
         function resetZoom() {
             currentZoom = 1;
-            let stage = document.getElementById('pdf-zoom-stage');
-            let container = document.getElementById('pdf-container');
-            if (stage) { stage.style.width = ''; stage.style.height = ''; }
-            if (container) { container.style.transform = ''; }
-        }
-        function applyZoom(newZoom, mid, startScroll, startZoom) {
-            let scrollEl = document.getElementById('pdf-scroll-main');
-            let stage = document.getElementById('pdf-zoom-stage');
-            let container = document.getElementById('pdf-container');
-            if (!scrollEl || !stage || !container) return;
-
-            // 확대와 무관한 콘텐츠 원본 크기(레이아웃 크기)를 기준으로 스테이지 크기를 확대 비율만큼 키움
-            // (transform은 스크롤 가능 영역에 영향을 주지 않기 때문에, 스테이지 크기를 직접 키워서 스크롤 범위를 확보)
-            let naturalWidth = container.scrollWidth;
-            let naturalHeight = container.scrollHeight;
-
-            currentZoom = newZoom;
-            stage.style.width = (naturalWidth * currentZoom) + 'px';
-            stage.style.height = (naturalHeight * currentZoom) + 'px';
-            container.style.transform = `scale(${currentZoom})`;
-
-            // 확대 중심점이 계속 같은 위치를 가리키도록 스크롤 위치 보정
-            let contentX = (startScroll.left + mid.x) / startZoom;
-            let contentY = (startScroll.top + mid.y) / startZoom;
-            scrollEl.scrollLeft = contentX * currentZoom - mid.x;
-            scrollEl.scrollTop = contentY * currentZoom - mid.y;
+            const stage = document.getElementById('pdf-zoom-stage');
+            stage.style.width = ''; stage.style.height = '';
+            document.getElementById('pdf-container').style.transform = '';
         }
         function zoomByStep(delta) {
-            let scrollEl = document.getElementById('pdf-scroll-main');
-            if (!scrollEl) return;
-            let rect = scrollEl.getBoundingClientRect();
-            let mid = { x: rect.width / 2, y: rect.height / 2 }; // 화면 중앙을 기준으로 확대/축소
-            let startScroll = { left: scrollEl.scrollLeft, top: scrollEl.scrollTop };
-            let startZoom = currentZoom;
-            let newZoom = Math.min(Math.max(startZoom + delta, ZOOM_MIN), ZOOM_MAX);
+            const scrollEl = document.getElementById('pdf-scroll-main');
+            const stage = document.getElementById('pdf-zoom-stage');
+            const container = document.getElementById('pdf-container');
+            const startZoom = currentZoom;
+            const newZoom = Math.min(Math.max(startZoom + delta, ZOOM_MIN), ZOOM_MAX);
             if (newZoom === startZoom) return;
-            applyZoom(newZoom, mid, startScroll, startZoom);
+            const rect = scrollEl.getBoundingClientRect();
+            const mid = { x: rect.width / 2, y: rect.height / 2 };
+            const cx = (scrollEl.scrollLeft + mid.x) / startZoom, cy = (scrollEl.scrollTop + mid.y) / startZoom;
+            currentZoom = newZoom;
+            stage.style.width = (container.scrollWidth * newZoom) + 'px';
+            stage.style.height = (container.scrollHeight * newZoom) + 'px';
+            container.style.transform = `scale(${newZoom})`;
+            scrollEl.scrollLeft = cx * newZoom - mid.x;
+            scrollEl.scrollTop = cy * newZoom - mid.y;
         }
         function zoomIn() { zoomByStep(0.25); }
         function zoomOut() { zoomByStep(-0.25); }
 
-        async function loadPDF(arrayBuffer) {
-            let container = document.getElementById('pdf-container'); container.innerHTML = '';
-            resetZoom(); // 새 학습지를 불러올 때는 확대 상태를 원래대로 되돌림
-            try {
-                pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-                for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                    let page = await pdfDoc.getPage(pageNum); let viewport = page.getViewport({ scale: pdfScale });
-                    let pageDiv = document.createElement('div'); pageDiv.id = 'page-container-' + pageNum; pageDiv.className = 'pdf-page-container';
-                    pageDiv.style.width = viewport.width + 'px'; pageDiv.style.height = viewport.height + 'px';
-
-                    let canvas = document.createElement('canvas'); canvas.className = 'absolute top-0 left-0 z-0';
-                    canvas.width = viewport.width; canvas.height = viewport.height;
-                    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
-                    pageDiv.appendChild(canvas);
-
-                    let interactiveLayer = document.createElement('div'); 
-                    interactiveLayer.className = 'absolute inset-0 z-10 cursor-crosshair';
-                    interactiveLayer.style.background = 'transparent';
-                    
-                    interactiveLayer.addEventListener('mousedown', function(e) {
-                        if (currentMode !== 'teacher' || currentViewingStudentIndex !== null) return;
-                        if (e.target !== interactiveLayer) return;
-                        
-                        let rect = interactiveLayer.getBoundingClientRect();
-                        let clickX = e.clientX - rect.left;
-                        let clickY = e.clientY - rect.top;
-                        
-                        let w = 140, h = 26; 
-                        if (currentTool === 'textarea') { w = 200; h = 60; } 
-                        else if (currentTool === 'multimedia') { w = 320; h = 240; }
-                        
-                        let team = getCurrentTeam();
-                        teamDataStore[team].elements.push({ 
-                            id: 'el-' + Date.now(), 
-                            page: pageNum, 
-                            type: currentTool, 
-                            left: (clickX / rect.width) * 100, 
-                            top: (clickY / rect.height) * 100, 
-                            width: (w / rect.width) * 100, 
-                            height: (h / rect.height) * 100, 
-                            value: "" 
-                        });
-                        renderElements();
-                    });
-                    
-                    pageDiv.appendChild(interactiveLayer); container.appendChild(pageDiv);
-                }
-                renderElements();
-            } catch(e) { console.error(e); }
-        }
-
-        function loadStudentResponseToCanvas() {
-            let val = document.getElementById('select-student-submission').value; if (val === "") { clearStudentViewMode(); return; }
-            currentViewingStudentIndex = parseInt(val); document.getElementById('btn-clear-view').classList.remove('hidden');
-            let studentData = globalSubmissions[currentViewingStudentIndex]; let currentTeam = getCurrentTeam();
-            let responsesArray = []; try { responsesArray = typeof studentData.responses === 'string' ? JSON.parse(studentData.responses) : studentData.responses; } catch(e) { responsesArray = []; }
-            teamDataStore[currentTeam].elements.forEach(el => { let match = responsesArray.find(r => r.id === el.id); el.value = match ? match.value : ""; });
-            renderElements();
-        }
-
-        function clearStudentViewMode() {
-            currentViewingStudentIndex = null; document.getElementById('btn-clear-view').classList.add('hidden');
-            let selectWidget = document.getElementById('select-student-submission'); if (selectWidget) selectWidget.value = "";
-            let currentTeam = getCurrentTeam(); teamDataStore[currentTeam].elements.forEach(el => { el.value = ""; });
-            renderElements();
-        }
-
+        // ─────────────── 문항 그리기 ───────────────
         function renderElements() {
+            closePopover();
+            if (fullscreenPad) fullscreenPad.close();
             document.querySelectorAll('.overlay-element, .student-element').forEach(el => el.remove());
-            let team = getCurrentTeam(); let isViewingMode = (currentViewingStudentIndex !== null);
-            if(!teamDataStore[team] || !teamDataStore[team].elements) return;
+            const team = getCurrentTeam();
+            const isViewing = viewingIndex !== null;
+            const isEditing = currentMode === 'teacher' && !isViewing;
 
             teamDataStore[team].elements.forEach(el => {
-                let pageWrap = document.getElementById('page-container-' + el.page); if (!pageWrap) return;
-                let wrap = document.createElement('div'); wrap.style.left = el.left + '%'; wrap.style.top = el.top + '%'; wrap.style.width = el.width + '%'; wrap.style.height = el.height + '%';
+                const pageWrap = document.getElementById('page-container-' + el.page);
+                if (!pageWrap) return;
+                const wrap = document.createElement('div');
+                wrap.dataset.elId = el.id;
+                Object.assign(wrap.style, { left: el.left + '%', top: el.top + '%', width: el.width + '%', height: el.height + '%' });
 
-                if (currentMode === 'teacher' && !isViewingMode) {
+                if (isEditing) {
                     wrap.className = 'overlay-element';
-                    wrap.innerHTML = `<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/40">[${el.type === 'multimedia' ? '그림판' : el.type}]</div>
-                                      <button onmousedown="event.stopPropagation(); deleteElement('${el.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] z-50">×</button>
-                                      <div class="resize-handle"></div>`;
+                    wrap.innerHTML = `<div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-bold text-indigo-500/60">[${TYPE_LABEL[el.type]}]</div><div class="resize-handle"></div>`;
+                    const del = document.createElement('button');
+                    del.className = 'absolute -top-2.5 -right-2.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[11px] z-50';
+                    del.setAttribute('aria-label', '칸 삭제'); del.innerText = '×';
+                    del.addEventListener('pointerdown', e => e.stopPropagation());
+                    del.addEventListener('click', e => { e.stopPropagation(); deleteElement(el.id); });
+                    wrap.appendChild(del);
                     setupDragAndResize(wrap, el);
+                } else if (isViewing) {
+                    wrap.className = 'student-element';
+                    renderViewer(wrap, el, viewingResponses[el.id] || "");
                 } else {
                     wrap.className = 'student-element';
-                    if (el.type === 'text') {
-                        if (isViewingMode) {
-                            let div = document.createElement('div'); div.className = 'viewer-text'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
-                        } else {
-                            let input = document.createElement('input'); input.type = 'text'; input.className = 'student-text'; input.placeholder = '단답형 답변 작성';
-                            input.value = el.value || ''; input.addEventListener('input', e => el.value = e.target.value); wrap.appendChild(input);
-                        }
-                    } else if (el.type === 'textarea') {
-                        if (isViewingMode) {
-                            let div = document.createElement('div'); div.className = 'viewer-textarea'; div.innerText = el.value || '(미입력)'; wrap.appendChild(div);
-                        } else {
-                            let ta = document.createElement('textarea'); ta.className = 'student-textarea'; ta.placeholder = '서술형 답변 내용을 입력하세요...';
-                            ta.value = el.value || ''; ta.addEventListener('input', e => el.value = e.target.value); wrap.appendChild(ta);
-                        }
-                    } else if (el.type === 'multimedia') {
-                        if (isViewingMode) {
-                            let box = document.createElement('div'); box.className = "w-full h-full bg-white border-2 border-indigo-500 rounded relative overflow-hidden flex flex-col";
-                            box.innerHTML = '<div class="bg-indigo-500 text-white font-bold text-[9px] px-1 py-0.5"><i class="fa-solid fa-palette"></i> 학생 그림판 제출 내용</div>';
-                            let imgArea = document.createElement('div'); imgArea.className = "flex-grow relative bg-slate-50";
-                            if(el.value && el.value.indexOf("data:image") === 0) {
-                                let sImg = document.createElement('img'); sImg.src = el.value; sImg.className = "w-full h-full object-contain absolute inset-0"; imgArea.appendChild(sImg);
-                            } else { imgArea.innerHTML = '<div class="text-center text-slate-400 text-[10px] mt-8">그림 데이터 없음</div>'; }
-                            box.appendChild(imgArea); wrap.appendChild(box);
-                        } else {
-                            let cvContainer = document.createElement('div'); cvContainer.className = "student-canvas-container";
-                            cvContainer.innerHTML = `<div class="canvas-toolbar"><div class="flex items-center justify-between w-full flex-wrap gap-1"><div class="flex items-center space-x-1"><input type="color" data-id="color-picker-${el.id}" value="#000000" class="w-6 h-6 p-0 border border-slate-300 rounded cursor-pointer bg-transparent"><button data-tool="pen" class="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold">펜</button><button data-tool="eraser" class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]">지우개</button></div><div class="flex items-center space-x-1"><button data-tool="undo-stroke" class="px-1.5 py-0.5 bg-amber-100 rounded text-[10px] text-amber-700 font-bold"><i class="fa-solid fa-rotate-left mr-0.5"></i>한 획 되돌리기</button><button data-tool="clear-all" class="px-1.5 py-0.5 bg-red-100 rounded text-[10px] text-red-600 font-bold">전체 지우기</button></div></div><div class="flex items-center space-x-2 mt-1 bg-white px-2 py-0.5 rounded border border-slate-200"><span data-id="thickness-label-${el.id}" class="text-[9px] font-bold text-slate-500 shrink-0">두께: 3px</span><input type="range" data-id="thick-slider-${el.id}" min="1" max="30" value="3" class="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"></div></div>`;
-                            let cv = document.createElement('canvas'); cv.className = 'student-canvas'; cvContainer.appendChild(cv); wrap.appendChild(cvContainer);
-                            setTimeout(() => {
-                                cv.width = cv.offsetWidth; cv.height = cv.offsetHeight; let ctx = cv.getContext('2d'); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                                let currentBrushMode = "pen"; let pPicker = cvContainer.querySelector(`[data-id="color-picker-${el.id}"]`);
-                                let tSlider = cvContainer.querySelector(`[data-id="thick-slider-${el.id}"]`); let tLabel = cvContainer.querySelector(`[data-id="thickness-label-${el.id}"]`);
-                                let btnPen = cvContainer.querySelector('[data-tool="pen"]'); let btnEraser = cvContainer.querySelector('[data-tool="eraser"]');
-                                el._undoStack = el._undoStack || []; // 획 단위 되돌리기 기록 (세션 동안 메모리에만 보관)
-                                if (el.value && el.value.indexOf("data:image") === 0) { let img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = el.value; }
-                                btnPen.onclick = () => { currentBrushMode = "pen"; btnPen.className = "px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold"; btnEraser.className = "px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]"; };
-                                btnEraser.onclick = () => { currentBrushMode = "eraser"; btnEraser.className = "px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold"; btnPen.className = "px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]"; };
-                                tSlider.oninput = e => { tLabel.innerText = `두께: ${e.target.value}px`; };
-                                cvContainer.querySelector('[data-tool="undo-stroke"]').onclick = () => {
-                                    if (!el._undoStack || !el._undoStack.length) return; // 되돌릴 획이 없으면 아무 동작 안 함
-                                    let prevValue = el._undoStack.pop();
-                                    ctx.clearRect(0, 0, cv.width, cv.height);
-                                    if (prevValue) {
-                                        let img = new Image();
-                                        img.onload = () => ctx.drawImage(img, 0, 0);
-                                        img.src = prevValue;
-                                        el.value = prevValue;
-                                    } else {
-                                        el.value = ""; // 맨 처음(빈 캔버스) 상태까지 되돌아옴
-                                    }
-                                };
-                                cvContainer.querySelector('[data-tool="clear-all"]').onclick = () => { if(confirm("전체 그림을 지울까요?")) { ctx.clearRect(0, 0, cv.width, cv.height); el.value = ""; el._undoStack = []; } };
-                                setupDrawing(cv, ctx, el, () => currentBrushMode === "eraser" ? "#ffffff" : pPicker.value, () => parseInt(tSlider.value));
-                            }, 50);
-                        }
-                    }
+                    renderStudentInput(wrap, el);
                 }
                 pageWrap.appendChild(wrap);
             });
         }
 
-        function saveCanvasState(canvas, elObj) { elObj.value = canvas.toDataURL(); }
-        function setupDrawing(cv, ctx, elObj, getColor, getWidth) {
-            let active = false;
-            function start(e) {
-                active = true;
-                // [한 획 되돌리기] 새 획을 긋기 전 상태를 기록해둠 (빈 캔버스였다면 null로 기록)
-                elObj._undoStack = elObj._undoStack || [];
-                elObj._undoStack.push(elObj.value || null);
-                if (elObj._undoStack.length > 30) elObj._undoStack.shift(); // 메모리 보호를 위해 최근 30개까지만 보관
-                ctx.beginPath(); draw(e);
-            }
-            function end() { if(active) { active = false; ctx.beginPath(); saveCanvasState(cv, elObj); } }
-            function draw(e) {
-                if (!active) return; e.preventDefault(); let r = cv.getBoundingClientRect();
-                let cx = e.touches ? e.touches[0].clientX : e.clientX; let cy = e.touches ? e.touches[0].clientY : e.clientY;
-                // [줌 보정] 화면에 보이는 크기(rect)와 캔버스 실제 해상도(cv.width/height)가 확대/축소 배율만큼 달라지므로 비율로 환산
-                let scaleX = cv.width / r.width; let scaleY = cv.height / r.height;
-                let px = (cx - r.left) * scaleX; let py = (cy - r.top) * scaleY;
-                ctx.lineWidth = getWidth(); ctx.strokeStyle = getColor(); ctx.lineTo(px, py); ctx.stroke(); ctx.beginPath(); ctx.moveTo(px, py);
-            }
-            cv.addEventListener('mousedown', start); cv.addEventListener('mousemove', draw); cv.addEventListener('mouseup', end);
-            cv.addEventListener('touchstart', start, { passive: false }); cv.addEventListener('touchmove', draw, { passive: false }); cv.addEventListener('touchend', end);
-        }
-
-        function setupDragAndResize(wrap, elObj) {
-            let isDrag = false, isResize = false, sx, sy, sl, st, sw, sh;
-            function handleStart(clientX, clientY, target) {
-                let pRect = wrap.parentElement.getBoundingClientRect();
-                if (target.classList.contains('resize-handle')) { isResize = true; sx = clientX; sy = clientY; sw = parseFloat(wrap.style.width); sh = parseFloat(wrap.style.height); }
-                else { isDrag = true; sx = clientX; sy = clientY; sl = parseFloat(wrap.style.left); st = parseFloat(wrap.style.top); }
-                function move(moveClientX, moveClientY) {
-                    if (isResize) { elObj.width = Math.max(8, sw + ((moveClientX - sx) / pRect.width) * 100); elObj.height = Math.max(4, sh + ((moveClientY - sy) / pRect.height) * 100); wrap.style.width = elObj.width + '%'; wrap.style.height = elObj.height + '%'; }
-                    else if (isDrag) { elObj.left = Math.max(0, Math.min(100 - elObj.width, sl + ((moveClientX - sx) / pRect.width) * 100)); elObj.top = Math.max(0, Math.min(100 - elObj.height, st + ((moveClientY - sy) / pRect.height) * 100)); wrap.style.left = elObj.left + '%'; wrap.style.top = elObj.top + '%'; }
+        function renderViewer(wrap, el, value) {
+            if (el.type === 'multimedia') {
+                const box = document.createElement('div');
+                box.className = "w-full h-full bg-white border-2 border-indigo-500 rounded relative overflow-hidden flex flex-col";
+                box.innerHTML = '<div class="bg-indigo-500 text-white font-bold text-[9px] px-1 py-0.5"><i class="fa-solid fa-palette"></i> 학생 그림</div>';
+                const area = document.createElement('div'); area.className = "flex-grow relative bg-slate-50";
+                const src = value.startsWith('drive:') ? imageCache[value.slice(6)] : value;
+                if (src && src.startsWith('data:image')) {
+                    const img = document.createElement('img');
+                    img.src = src; img.alt = '학생 그림'; img.className = "w-full h-full object-contain absolute inset-0";
+                    area.appendChild(img);
+                } else {
+                    area.innerHTML = `<div class="text-center text-slate-400 text-[10px] mt-8">${value.startsWith('drive:') ? '그림을 불러오지 못했습니다' : '그림 없음'}</div>`;
                 }
-                function mouseMoveHandler(me) { move(me.clientX, me.clientY); }
-                function mouseUpHandler() { isDrag = isResize = false; document.removeEventListener('mousemove', mouseMoveHandler); document.removeEventListener('mouseup', mouseUpHandler); }
-                document.addEventListener('mousemove', mouseMoveHandler); document.addEventListener('mouseup', mouseUpHandler);
+                box.appendChild(area); wrap.appendChild(box);
+            } else {
+                const div = document.createElement('div');
+                div.className = (el.type === 'text' ? 'viewer-text' : 'viewer-textarea') + (value.trim() ? '' : ' viewer-empty');
+                div.innerText = value || '(미입력)';
+                wrap.appendChild(div);
             }
-            wrap.addEventListener('mousedown', e => { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') { e.preventDefault(); e.stopPropagation(); handleStart(e.clientX, e.clientY, e.target); } });
         }
 
-        function deleteElement(id) { let team = getCurrentTeam(); teamDataStore[team].elements = teamDataStore[team].elements.filter(el => el.id !== id); renderElements(); }
+        function renderStudentInput(wrap, el) {
+            if (el.type === 'text' || el.type === 'textarea') {
+                const input = document.createElement(el.type === 'text' ? 'input' : 'textarea');
+                if (el.type === 'text') { input.type = 'text'; input.className = 'student-text'; input.placeholder = '단답형 답 쓰기'; }
+                else { input.className = 'student-textarea'; input.placeholder = '서술형 답을 쓰세요...'; }
+                input.value = el.value || '';
+                input.addEventListener('input', e => { el.value = e.target.value; wrap.classList.remove('missing'); scheduleDraftSave(); });
+                wrap.appendChild(input);
+                return;
+            }
+            // 그림판
+            mountDrawingPad(wrap, el);
+        }
 
+        // ══════════════════════════════════════════════════════════
+        //  그림판 (펜 4종 · 도형 4종 · 지우개 · 되돌리기/다시 실행 · 크게 그리기)
+        // ══════════════════════════════════════════════════════════
+        const PAD_RES = 2; // 캔버스 해상도 배율 (크게 볼 때도 선이 선명하도록)
+        const PEN_TOOLS = [
+            { id: 'pen',         icon: 'fa-solid fa-pen',         label: '펜' },
+            { id: 'pencil',      icon: 'fa-solid fa-pencil',      label: '연필' },
+            { id: 'brush',       icon: 'fa-solid fa-paintbrush',  label: '붓펜 (힘·속도에 따라 굵기 변화)' },
+            { id: 'highlighter', icon: 'fa-solid fa-highlighter', label: '형광펜' }
+        ];
+        const SHAPE_TOOLS = [
+            { id: 'line',    icon: 'fa-solid fa-slash',            label: '직선' },
+            { id: 'arrow',   icon: 'fa-solid fa-arrow-right-long', label: '화살표' },
+            { id: 'rect',    icon: 'fa-regular fa-square',         label: '사각형' },
+            { id: 'ellipse', icon: 'fa-regular fa-circle',         label: '원' }
+        ];
+        const PAD_COLORS = [
+            ['#000000', '검정'], ['#e11d48', '빨강'], ['#2563eb', '파랑'], ['#16a34a', '초록'],
+            ['#facc15', '노랑'], ['#f97316', '주황'], ['#9333ea', '보라'], ['#8b5a2b', '갈색']
+        ];
+        const PAD_SIZES = [[2, '가늘게'], [4, '보통'], [8, '굵게'], [14, '아주 굵게']];
+        const isPenTool = t => PEN_TOOLS.some(p => p.id === t);
+        const isShapeTool = t => SHAPE_TOOLS.some(p => p.id === t);
+
+        // 문항마다 그림판 상태를 보관 (화면을 다시 그려도 도구 선택·되돌리기 기록 유지)
+        function getPad(el) {
+            if (!el._pad) {
+                el._pad = { strokes: [], redo: [], base: null, tool: 'pen', penTool: 'pen', shapeTool: 'line',
+                            color: '#000000', size: 4, fill: false, dash: false, sawPen: false };
+                if (el.value && el.value.startsWith('data:image')) {
+                    const img = new Image(); img.src = el.value; el._pad.base = img;
+                }
+            }
+            return el._pad;
+        }
+
+        function mountDrawingPad(wrap, el) {
+            const pad = getPad(el);
+            const box = document.createElement('div');
+            box.className = 'student-canvas-container';
+            const sw = PAD_COLORS.map(([c, n]) => `<button class="pad-swatch" data-color="${c}" style="background:${c}" title="${n}" aria-label="${n}"></button>`).join('');
+            const sz = PAD_SIZES.map(([s, n]) => `<button class="pad-size" data-size="${s}" title="${n}" aria-label="굵기 ${n}"><span style="width:${Math.min(s + 2, 14)}px;height:${Math.min(s + 2, 14)}px"></span></button>`).join('');
+            box.innerHTML = `
+                <div class="pad-toolbar">
+                    <div class="pad-row">
+                        <div class="pad-group">
+                            <button class="pad-btn" data-act="pen" data-popover-anchor title="펜 (한 번 더 누르면 종류 선택)" aria-label="펜 종류"><i data-icon="pen"></i><i class="fa-solid fa-caret-down pad-caret"></i></button>
+                            <button class="pad-btn" data-act="shape" data-popover-anchor title="도형 (한 번 더 누르면 종류 선택)" aria-label="도형 종류"><i data-icon="shape"></i><i class="fa-solid fa-caret-down pad-caret"></i></button>
+                            <button class="pad-btn" data-act="eraser" title="지우개" aria-label="지우개"><i class="fa-solid fa-eraser"></i></button>
+                        </div>
+                        <div class="pad-group">
+                            <button class="pad-btn" data-act="undo" title="되돌리기" aria-label="되돌리기"><i class="fa-solid fa-rotate-left"></i></button>
+                            <button class="pad-btn" data-act="redo" title="다시 실행" aria-label="다시 실행"><i class="fa-solid fa-rotate-right"></i></button>
+                            <button class="pad-btn" data-act="clear" title="전체 지우기 (되돌리기로 복구 가능)" aria-label="전체 지우기"><i class="fa-solid fa-trash-can"></i></button>
+                            <span class="pad-sep"></span>
+                            <button class="pad-btn" data-act="expand" title="크게 그리기" aria-label="크게 그리기"><i class="fa-solid fa-expand"></i></button>
+                        </div>
+                    </div>
+                    <div class="pad-row">
+                        <div class="pad-group">${sw}<label class="pad-swatch pad-custom" title="다른 색 고르기"><input type="color" data-role="custom-color" aria-label="다른 색 고르기"></label></div>
+                        <div class="pad-group">${sz}</div>
+                    </div>
+                </div>`;
+            const cv = document.createElement('canvas');
+            cv.className = 'student-canvas';
+            box.appendChild(cv);
+            wrap.appendChild(box);
+
+            const $ = sel => box.querySelector(sel);
+            const ctx = cv.getContext('2d');
+            const committed = document.createElement('canvas'); // 확정된 그림 레이어
+            const cctx = committed.getContext('2d');
+            let current = null, activeId = null, raf = null, speed = null;
+
+            // ── 화면 갱신 ──
+            function present(extra) {
+                ctx.clearRect(0, 0, cv.width, cv.height);
+                ctx.drawImage(committed, 0, 0);
+                if (extra) drawStroke(ctx, extra);
+            }
+            function requestPresent() {
+                if (raf) return;
+                raf = requestAnimationFrame(() => { raf = null; present(current); });
+            }
+            function rebuild() {
+                cctx.clearRect(0, 0, committed.width, committed.height);
+                const b = pad.base;
+                if (b && (!(b instanceof HTMLImageElement) || (b.complete && b.naturalWidth))) {
+                    cctx.drawImage(b, 0, 0, committed.width, committed.height);
+                }
+                pad.strokes.forEach(s => drawStroke(cctx, s));
+                present();
+            }
+            function hasContent() {
+                let lastClear = -1;
+                pad.strokes.forEach((s, i) => { if (s.tool === 'clear') lastClear = i; });
+                if (lastClear >= 0) return pad.strokes.length - 1 > lastClear;
+                return !!pad.base || pad.strokes.length > 0;
+            }
+            function syncValue() {
+                el.value = hasContent() ? committed.toDataURL('image/png') : '';
+                wrap.classList.remove('missing');
+                scheduleDraftSave();
+                updateToolbar();
+            }
+            function commit(s) {
+                pad.strokes.push(s);
+                pad.redo = [];
+                drawStroke(cctx, s);
+                // 기록이 너무 길어지면 오래된 획은 바탕 그림으로 합침 (되돌리기는 최근 100획까지)
+                if (pad.strokes.length > 200) {
+                    const flat = document.createElement('canvas');
+                    flat.width = committed.width; flat.height = committed.height;
+                    const fctx = flat.getContext('2d');
+                    if (pad.base) fctx.drawImage(pad.base, 0, 0, flat.width, flat.height);
+                    pad.strokes.slice(0, 100).forEach(st => drawStroke(fctx, st));
+                    pad.base = flat;
+                    pad.strokes = pad.strokes.slice(100);
+                }
+                present();
+                syncValue();
+            }
+
+            // ── 도구 모음 ──
+            function updateToolbar() {
+                const penDef = PEN_TOOLS.find(p => p.id === pad.penTool);
+                const shapeDef = SHAPE_TOOLS.find(p => p.id === pad.shapeTool);
+                $('[data-icon="pen"]').className = penDef.icon;
+                $('[data-icon="shape"]').className = shapeDef.icon;
+                $('[data-act="pen"]').classList.toggle('active', isPenTool(pad.tool));
+                $('[data-act="shape"]').classList.toggle('active', isShapeTool(pad.tool));
+                $('[data-act="eraser"]').classList.toggle('active', pad.tool === 'eraser');
+                $('[data-act="undo"]').disabled = !pad.strokes.length;
+                $('[data-act="redo"]').disabled = !pad.redo.length;
+                box.querySelectorAll('.pad-swatch[data-color]').forEach(b => b.classList.toggle('active', b.dataset.color === pad.color));
+                const isCustom = !PAD_COLORS.some(([c]) => c === pad.color);
+                $('.pad-custom').classList.toggle('active', isCustom);
+                $('[data-role="custom-color"]').value = pad.color;
+                box.querySelectorAll('.pad-size').forEach(b => b.classList.toggle('active', Number(b.dataset.size) === pad.size));
+                cv.style.cursor = pad.tool === 'eraser' ? 'cell' : 'crosshair';
+            }
+            function selectTool(id) {
+                pad.tool = id;
+                if (isPenTool(id)) pad.penTool = id;
+                if (isShapeTool(id)) pad.shapeTool = id;
+                // 형광펜을 검정으로 고르면 노랑으로 바꿔 주고, 다른 도구로 돌아가면 원래 색으로 되돌림
+                if (id === 'highlighter' && pad.color === '#000000') { pad.color = '#facc15'; pad.autoYellow = true; }
+                else if (id !== 'highlighter' && pad.autoYellow) { if (pad.color === '#facc15') pad.color = '#000000'; pad.autoYellow = false; }
+                updateToolbar();
+            }
+            function menuItem(def, active, onPick, trailing = '') {
+                const b = document.createElement('button');
+                b.className = 'pad-menu-item' + (active ? ' active' : '');
+                b.innerHTML = `<i class="${def.icon}"></i><span class="flex-grow">${def.label}</span>${trailing}`;
+                b.addEventListener('click', onPick);
+                return b;
+            }
+            function openPenMenu(anchor) {
+                openPopover(anchor, menu => {
+                    PEN_TOOLS.forEach(d => menu.appendChild(menuItem(d, pad.tool === d.id, () => { selectTool(d.id); closePopover(); })));
+                });
+            }
+            function openShapeMenu(anchor) {
+                openPopover(anchor, menu => {
+                    const draw = () => {
+                        menu.innerHTML = '';
+                        SHAPE_TOOLS.forEach(d => menu.appendChild(menuItem(d, pad.tool === d.id, () => { selectTool(d.id); closePopover(); })));
+                        const hr = document.createElement('div'); hr.className = 'pad-menu-divider'; menu.appendChild(hr);
+                        const check = on => `<i class="fa-solid ${on ? 'fa-square-check text-indigo-600' : 'fa-square text-slate-300'}"></i>`;
+                        menu.appendChild(menuItem({ icon: 'fa-solid fa-fill-drip', label: '안쪽 연하게 채우기' }, false, () => { pad.fill = !pad.fill; draw(); }, check(pad.fill)));
+                        menu.appendChild(menuItem({ icon: 'fa-solid fa-ellipsis', label: '점선으로 그리기' }, false, () => { pad.dash = !pad.dash; draw(); }, check(pad.dash)));
+                    };
+                    draw();
+                });
+            }
+
+            $('[data-act="pen"]').addEventListener('click', e => {
+                if (isPenTool(pad.tool)) togglePopover(e.currentTarget, openPenMenu); else { closePopover(); selectTool(pad.penTool); }
+            });
+            $('[data-act="shape"]').addEventListener('click', e => {
+                if (isShapeTool(pad.tool)) togglePopover(e.currentTarget, openShapeMenu); else { closePopover(); selectTool(pad.shapeTool); }
+            });
+            $('[data-act="eraser"]').addEventListener('click', () => { closePopover(); selectTool('eraser'); });
+            $('[data-act="undo"]').addEventListener('click', () => {
+                if (!pad.strokes.length) return;
+                pad.redo.push(pad.strokes.pop()); rebuild(); syncValue();
+            });
+            $('[data-act="redo"]').addEventListener('click', () => {
+                if (!pad.redo.length) return;
+                const s = pad.redo.pop(); pad.strokes.push(s); drawStroke(cctx, s); present(); syncValue();
+            });
+            $('[data-act="clear"]').addEventListener('click', () => { if (hasContent()) commit({ tool: 'clear' }); });
+            const expandBtn = $('[data-act="expand"]');
+            expandBtn.addEventListener('click', () => {
+                if (fullscreenPad && fullscreenPad.box === box) { fullscreenPad.close(); return; }
+                openFullscreen(box, on => {
+                    expandBtn.querySelector('i').className = on ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+                    expandBtn.title = on ? '작게 보기' : '크게 그리기';
+                    expandBtn.setAttribute('aria-label', expandBtn.title);
+                });
+            });
+            box.querySelectorAll('.pad-swatch[data-color]').forEach(b => b.addEventListener('click', () => { pad.color = b.dataset.color; pad.autoYellow = false; updateToolbar(); }));
+            $('[data-role="custom-color"]').addEventListener('input', e => { pad.color = e.target.value; pad.autoYellow = false; updateToolbar(); });
+            box.querySelectorAll('.pad-size').forEach(b => b.addEventListener('click', () => { pad.size = Number(b.dataset.size); updateToolbar(); }));
+
+            // ── 그리기 입력 (펜·손가락·마우스) ──
+            const pos = e => {
+                const r = cv.getBoundingClientRect();
+                return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+            };
+            function brushFactor(e) {
+                if (e.pointerType === 'pen' && e.pressure > 0) return 0.25 + e.pressure * 1.1;
+                const dt = Math.max(1, e.timeStamp - speed.t);
+                const v = Math.hypot(e.clientX - speed.x, e.clientY - speed.y) / dt;
+                const target = Math.min(1.3, Math.max(0.35, 1.3 - v * 0.5));
+                speed.f = speed.f * 0.75 + target * 0.25;
+                speed.x = e.clientX; speed.y = e.clientY; speed.t = e.timeStamp;
+                return speed.f;
+            }
+            function snapLine(a, b) {
+                const dx = (b.x - a.x) * cv.width, dy = (b.y - a.y) * cv.height;
+                const ang = Math.atan2(dy, dx), step = Math.PI / 4;
+                const near = Math.round(ang / step) * step;
+                if (Math.abs(ang - near) > 7 * Math.PI / 180) return b;
+                const len = Math.hypot(dx, dy);
+                return { x: a.x + Math.cos(near) * len / cv.width, y: a.y + Math.sin(near) * len / cv.height };
+            }
+
+            cv.addEventListener('pointerdown', e => {
+                if (activeId !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+                if (e.pointerType === 'pen') pad.sawPen = true;
+                else if (e.pointerType === 'touch' && pad.sawPen) return; // 펜을 쓰는 중이면 손바닥 터치 무시
+                e.preventDefault();
+                closePopover();
+                cv.setPointerCapture(e.pointerId);
+                activeId = e.pointerId;
+                speed = { x: e.clientX, y: e.clientY, t: e.timeStamp, f: 0.8 };
+                const p = pos(e);
+                current = {
+                    tool: pad.tool, color: pad.color, size: pad.size, cw: cv.width,
+                    seed: Math.floor(Math.random() * 1000), dash: pad.dash, fill: pad.fill,
+                    pts: isShapeTool(pad.tool) ? [p, p] : [{ ...p, f: pad.tool === 'brush' ? brushFactor(e) : 1 }]
+                };
+                requestPresent();
+            });
+            cv.addEventListener('pointermove', e => {
+                if (e.pointerId !== activeId || !current) return;
+                e.preventDefault();
+                if (isShapeTool(current.tool)) {
+                    const b = pos(e);
+                    current.pts[1] = (current.tool === 'line' || current.tool === 'arrow') ? snapLine(current.pts[0], b) : b;
+                } else {
+                    const evs = (e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
+                    evs.forEach(ev => {
+                        const p = pos(ev);
+                        const last = current.pts[current.pts.length - 1];
+                        if (Math.hypot((p.x - last.x) * cv.width, (p.y - last.y) * cv.height) < 1) return;
+                        current.pts.push({ ...p, f: current.tool === 'brush' ? brushFactor(ev) : 1 });
+                    });
+                }
+                requestPresent();
+            });
+            const end = e => {
+                if (e.pointerId !== activeId) return;
+                activeId = null;
+                const s = current; current = null;
+                if (!s) return;
+                if (isShapeTool(s.tool)) {
+                    const [a, b] = s.pts;
+                    if (Math.hypot((b.x - a.x) * cv.width, (b.y - a.y) * cv.height) < 4) { present(); return; } // 너무 작은 도형은 무시
+                }
+                commit(s);
+            };
+            cv.addEventListener('pointerup', end);
+            cv.addEventListener('pointercancel', end);
+
+            // ── 크기 맞추고 그리기 시작 ──
+            requestAnimationFrame(() => {
+                const w = Math.max(1, Math.round(cv.offsetWidth * PAD_RES));
+                const h = Math.max(1, Math.round(cv.offsetHeight * PAD_RES));
+                cv.width = committed.width = w;
+                cv.height = committed.height = h;
+                rebuild();
+                if (pad.base instanceof HTMLImageElement && !pad.base.complete) {
+                    pad.base.addEventListener('load', rebuild, { once: true });
+                    pad.base.addEventListener('error', () => { pad.base = null; }, { once: true });
+                }
+                updateToolbar();
+            });
+            updateToolbar();
+        }
+
+        // ── 획 하나 그리기 (되돌리기 때 다시 그려도 똑같이 나오도록 결정적으로 그림) ──
+        function padRand(seed, n) { const x = Math.sin(seed * 12.9898 + n * 78.233) * 43758.5453; return x - Math.floor(x); }
+
+        function smoothPath(c, p, lw) {
+            if (p.length === 1) { c.beginPath(); c.arc(p[0].x, p[0].y, lw / 2, 0, Math.PI * 2); c.fill(); return; }
+            c.beginPath(); c.moveTo(p[0].x, p[0].y);
+            for (let i = 1; i < p.length - 1; i++) {
+                c.quadraticCurveTo(p[i].x, p[i].y, (p[i].x + p[i + 1].x) / 2, (p[i].y + p[i + 1].y) / 2);
+            }
+            const l = p[p.length - 1]; c.lineTo(l.x, l.y); c.stroke();
+        }
+
+        function drawStroke(c, s) {
+            const W = c.canvas.width, H = c.canvas.height;
+            if (s.tool === 'clear') { c.clearRect(0, 0, W, H); return; }
+            const k = W / s.cw;
+            const w = s.size * PAD_RES * k;
+            const pts = s.pts.map(p => ({ x: p.x * W, y: p.y * H, f: p.f }));
+            c.save();
+            c.lineCap = 'round'; c.lineJoin = 'round';
+            c.strokeStyle = c.fillStyle = s.color;
+
+            switch (s.tool) {
+                case 'pen':
+                    c.lineWidth = w; smoothPath(c, pts, w); break;
+
+                case 'eraser':
+                    c.globalCompositeOperation = 'destination-out';
+                    c.lineWidth = w * 2.5; smoothPath(c, pts, w * 2.5); break;
+
+                case 'highlighter':
+                    c.globalCompositeOperation = 'multiply'; // 아래 글씨를 덮지 않음
+                    c.globalAlpha = 0.4;
+                    c.lineWidth = Math.max(w * 3, 10 * PAD_RES * k);
+                    smoothPath(c, pts, c.lineWidth); break;
+
+                case 'pencil': {
+                    const base = Math.max(1, w * 0.55);
+                    for (let layer = 0; layer < 3; layer++) {
+                        c.globalAlpha = layer === 0 ? 0.75 : 0.3;
+                        c.lineWidth = layer === 0 ? base : base * 0.7;
+                        const jit = layer === 0 ? 0 : w * 0.35;
+                        const jp = pts.map((p, i) => ({
+                            x: p.x + (padRand(s.seed, i * 2 + layer * 7) - 0.5) * jit,
+                            y: p.y + (padRand(s.seed, i * 2 + 1 + layer * 7) - 0.5) * jit
+                        }));
+                        smoothPath(c, jp, c.lineWidth);
+                    }
+                    break;
+                }
+
+                case 'brush':
+                    if (pts.length === 1) { c.beginPath(); c.arc(pts[0].x, pts[0].y, w * 0.9 * pts[0].f, 0, Math.PI * 2); c.fill(); break; }
+                    for (let i = 1; i < pts.length; i++) {
+                        c.lineWidth = Math.max(0.5, w * 1.8 * (pts[i - 1].f + pts[i].f) / 2);
+                        c.beginPath(); c.moveTo(pts[i - 1].x, pts[i - 1].y); c.lineTo(pts[i].x, pts[i].y); c.stroke();
+                    }
+                    break;
+
+                default: { // 도형
+                    const a = pts[0], b = pts[pts.length - 1];
+                    c.lineWidth = w;
+                    if (s.dash) c.setLineDash([Math.max(w * 1.5, 4), w * 2.5 + 4]);
+                    if (s.tool === 'line') {
+                        c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+                    } else if (s.tool === 'arrow') {
+                        const ang = Math.atan2(b.y - a.y, b.x - a.x);
+                        const head = Math.max(w * 3.5, 9 * PAD_RES * k);
+                        const len = Math.hypot(b.x - a.x, b.y - a.y);
+                        const cut = Math.min(head * 0.7, len);
+                        c.beginPath(); c.moveTo(a.x, a.y);
+                        c.lineTo(b.x - Math.cos(ang) * cut, b.y - Math.sin(ang) * cut); c.stroke();
+                        c.setLineDash([]);
+                        c.beginPath(); c.moveTo(b.x, b.y);
+                        c.lineTo(b.x - head * Math.cos(ang - 0.45), b.y - head * Math.sin(ang - 0.45));
+                        c.lineTo(b.x - head * Math.cos(ang + 0.45), b.y - head * Math.sin(ang + 0.45));
+                        c.closePath(); c.fill();
+                    } else {
+                        c.beginPath();
+                        if (s.tool === 'rect') c.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+                        else c.ellipse((a.x + b.x) / 2, (a.y + b.y) / 2, Math.abs(b.x - a.x) / 2, Math.abs(b.y - a.y) / 2, 0, 0, Math.PI * 2);
+                        if (s.fill) { c.globalAlpha = 0.22; c.fill(); c.globalAlpha = 1; }
+                        c.stroke();
+                    }
+                }
+            }
+            c.restore();
+        }
+
+        // ── 펜/도형 종류 선택 창 ──
+        let popoverEl = null;
+        function closePopover() {
+            if (!popoverEl) return;
+            popoverEl.remove(); popoverEl = null;
+            document.removeEventListener('pointerdown', onOutsidePopover, true);
+        }
+        function onOutsidePopover(e) {
+            if (popoverEl && !popoverEl.contains(e.target) && e.target.closest('[data-popover-anchor]') !== popoverEl._anchor) closePopover();
+        }
+        function togglePopover(anchor, opener) {
+            if (popoverEl && popoverEl._anchor === anchor) closePopover(); else opener(anchor);
+        }
+        function openPopover(anchor, build) {
+            closePopover();
+            const menu = document.createElement('div');
+            menu.className = 'pad-popover';
+            menu._anchor = anchor;
+            build(menu);
+            document.body.appendChild(menu);
+            const r = anchor.getBoundingClientRect();
+            const mw = menu.offsetWidth, mh = menu.offsetHeight;
+            menu.style.left = Math.max(8, Math.min(r.left, innerWidth - mw - 8)) + 'px';
+            menu.style.top = (r.bottom + 4 + mh > innerHeight ? Math.max(8, r.top - mh - 4) : r.bottom + 4) + 'px';
+            popoverEl = menu;
+            document.addEventListener('pointerdown', onOutsidePopover, true);
+        }
+
+        // ── 크게 그리기 ──
+        let fullscreenPad = null;
+        function openFullscreen(box, onToggle) {
+            if (fullscreenPad) fullscreenPad.close();
+            closePopover();
+            const parent = box.parentElement;
+            const w = box.offsetWidth, h = box.offsetHeight;
+            const scale = Math.min((innerWidth - 24) / w, (innerHeight - 24) / h, 2.5);
+            const overlay = document.createElement('div');
+            overlay.className = 'pad-overlay';
+            Object.assign(box.style, { width: w + 'px', height: h + 'px', transform: `scale(${scale})`, flexShrink: '0' });
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            document.body.style.overflow = 'hidden';
+            overlay.addEventListener('click', e => { if (e.target === overlay) fullscreenPad?.close(); });
+            fullscreenPad = {
+                box,
+                close() {
+                    closePopover();
+                    Object.assign(box.style, { width: '', height: '', transform: '', flexShrink: '' });
+                    if (parent && parent.isConnected) parent.appendChild(box);
+                    overlay.remove();
+                    document.body.style.overflow = '';
+                    fullscreenPad = null;
+                    onToggle(false);
+                }
+            };
+            onToggle(true);
+        }
+        window.addEventListener('keydown', e => { if (e.key === 'Escape') { if (popoverEl) closePopover(); else fullscreenPad?.close(); } });
+        // 태블릿에서 주소창이 숨겨질 때도 resize 가 생기므로, 가로 폭이 바뀔 때(화면 회전 등)만 닫음
+        let lastViewportWidth = innerWidth;
+        window.addEventListener('resize', () => {
+            if (innerWidth === lastViewportWidth) return;
+            lastViewportWidth = innerWidth;
+            closePopover(); fullscreenPad?.close();
+        });
+
+        // 교사용: 칸 옮기기/크기 조절 (마우스·터치 모두)
+        function setupDragAndResize(wrap, el) {
+            wrap.addEventListener('pointerdown', e => {
+                if (e.target.tagName === 'BUTTON') return;
+                e.preventDefault(); e.stopPropagation();
+                const resizing = e.target.classList.contains('resize-handle');
+                const pRect = wrap.parentElement.getBoundingClientRect();
+                const sx = e.clientX, sy = e.clientY;
+                const start = { left: el.left, top: el.top, width: el.width, height: el.height };
+                wrap.setPointerCapture(e.pointerId);
+                const move = me => {
+                    const dx = (me.clientX - sx) / pRect.width * 100, dy = (me.clientY - sy) / pRect.height * 100;
+                    if (resizing) {
+                        el.width = Math.min(100 - el.left, Math.max(5, start.width + dx));
+                        el.height = Math.min(100 - el.top, Math.max(2, start.height + dy));
+                    } else {
+                        el.left = Math.max(0, Math.min(100 - el.width, start.left + dx));
+                        el.top = Math.max(0, Math.min(100 - el.height, start.top + dy));
+                    }
+                    Object.assign(wrap.style, { left: el.left + '%', top: el.top + '%', width: el.width + '%', height: el.height + '%' });
+                };
+                const up = () => {
+                    wrap.removeEventListener('pointermove', move);
+                    wrap.removeEventListener('pointerup', up);
+                    wrap.removeEventListener('pointercancel', up);
+                    if (el.left !== start.left || el.top !== start.top || el.width !== start.width || el.height !== start.height) markLayoutDirty();
+                };
+                wrap.addEventListener('pointermove', move);
+                wrap.addEventListener('pointerup', up);
+                wrap.addEventListener('pointercancel', up);
+            });
+        }
+
+        function deleteElement(id) {
+            const team = getCurrentTeam();
+            teamDataStore[team].elements = teamDataStore[team].elements.filter(el => el.id !== id);
+            markLayoutDirty(); renderElements();
+        }
+
+        // ─────────────── 교사: 저장·업로드 ───────────────
+        async function saveBlueprintToServer() {
+            const team = getCurrentTeam();
+            const btns = [document.getElementById('btn-save-blueprint'), document.getElementById('btn-floating-save')];
+            btns.forEach(b => { b.disabled = true; b.querySelector('span').innerText = '저장 중...'; });
+            try {
+                const elements = teamDataStore[team].elements.map(({ id, page, type, left, top, width, height }) => ({ id, page, type, left, top, width, height }));
+                await apiPost('saveBlueprint', { team, elements });
+                layoutDirty = false;
+                const s = document.getElementById('layout-status');
+                s.innerText = `[${team}조] ${elements.length}개 칸 저장 완료 (${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`;
+                s.className = 'text-[10px] text-center mt-1 text-emerald-600 font-bold';
+            } catch (err) {
+                alert(`배치를 저장하지 못했습니다.\n${networkMessage(err)}`);
+            } finally {
+                btns[0].querySelector('span').innerText = '현재 배치 저장';
+                btns[1].querySelector('span').innerText = '현재 배치 저장';
+                btns.forEach(b => b.disabled = false);
+            }
+        }
+
+        function uploadPDFToServer(input) {
+            const file = input.files[0];
+            input.value = '';
+            if (!file) return;
+            if (file.size > MAX_PDF_MB * 1024 * 1024) { alert(`PDF가 ${MAX_PDF_MB}MB보다 큽니다. 용량을 줄여서 올려 주세요.`); return; }
+            const team = getCurrentTeam();
+            if (teamDataStore[team].elements.length && !confirm(`[${team}조]에 이미 문항 칸이 ${teamDataStore[team].elements.length}개 있습니다.\n페이지 모양이 다른 PDF라면 칸 위치를 다시 맞춰야 합니다. 계속할까요?`)) return;
+
+            const container = document.getElementById('pdf-container');
+            container.innerHTML = messageBox(`[${team}조] 학습지를 올리는 중...`, 'loading');
+            const reader = new FileReader();
+            reader.onload = async e => {
+                const base64Str = e.target.result.split(',')[1];
+                try {
+                    await apiPost('uploadPDF', { team, pdfData: base64Str });
+                    teamDataStore[team].base64Str = base64Str;
+                    loadPDFFromBase64(base64Str);
+                } catch (err) {
+                    alert(`PDF를 올리지 못했습니다.\n${networkMessage(err)}`);
+                    handleTeamChange();
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ─────────────── 교사: 채점 ───────────────
+        function resetSubmissionList(placeholder) {
+            submissions = [];
+            document.getElementById('select-student-submission').innerHTML = `<option value="">${placeholder}</option>`;
+        }
+
+        function submissionLabel(sub) {
+            let label = `[${sub.studentId}] ${sub.studentName}`;
+            if (sub.score !== '' && sub.score !== null && sub.score !== undefined) label += `  ✔ ${sub.score}점`;
+            if (sub.count > 1) label += `  (재제출 ${sub.count - 1}회)`;
+            return label;
+        }
+
+        async function fetchStudentSubmissions() {
+            const team = getCurrentTeam();
+            exitViewing();
+            resetSubmissionList('불러오는 중...');
+            try {
+                const data = await apiPost('readSubmissions', { team });
+                submissions = data.list || [];
+                const sel = document.getElementById('select-student-submission');
+                sel.innerHTML = `<option value="">-- 제출 학생 선택 (${submissions.length}명) --</option>`;
+                submissions.forEach((sub, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx; opt.innerText = submissionLabel(sub);
+                    sel.appendChild(opt);
+                });
+            } catch (err) {
+                resetSubmissionList('-- 제출 학생 선택 --');
+                alert(`제출 현황을 불러오지 못했습니다.\n${networkMessage(err)}`);
+            }
+        }
+
+        function onSubmissionSelect() {
+            const v = document.getElementById('select-student-submission').value;
+            if (v === '') clearStudentViewMode(); else openSubmission(parseInt(v, 10));
+        }
+
+        async function openSubmission(idx) {
+            if (layoutDirty && !confirm("저장하지 않은 배치 변경이 있습니다. 채점 화면으로 넘어가도 변경 내용은 유지되지만, 나중에 꼭 저장해 주세요.")) {
+                document.getElementById('select-student-submission').value = viewingIndex ?? ''; return;
+            }
+            const sub = submissions[idx];
+            let list = [];
+            try { list = typeof sub.responses === 'string' ? JSON.parse(sub.responses) : (sub.responses || []); } catch { list = []; }
+            viewingIndex = idx;
+            viewingResponses = {};
+            list.forEach(r => viewingResponses[r.id] = r.value || '');
+            document.getElementById('select-student-submission').value = idx;
+
+            const panel = document.getElementById('grade-panel');
+            panel.classList.remove('hidden');
+            document.getElementById('grade-meta').innerText = `${sub.studentName} · 제출 ${sub.timestamp}${sub.count > 1 ? ` · 재제출 ${sub.count - 1}회` : ''}`;
+            document.getElementById('grade-score').value = sub.score ?? '';
+            document.getElementById('grade-feedback').value = sub.feedback ?? '';
+            renderElements();
+
+            // 드라이브에 저장된 그림 불러오기
+            const need = list.filter(r => typeof r.value === 'string' && r.value.startsWith('drive:'))
+                             .map(r => r.value.slice(6)).filter(id => !(id in imageCache));
+            if (need.length) {
+                try {
+                    const data = await apiPost('getImages', { fileIds: need });
+                    Object.assign(imageCache, data.images);
+                    if (viewingIndex === idx) renderElements();
+                } catch (err) { console.error(err); }
+            }
+        }
+
+        function stepStudent(dir) {
+            if (!submissions.length) return;
+            const next = viewingIndex === null ? 0 : viewingIndex + dir;
+            if (next < 0 || next >= submissions.length) { alert(dir > 0 ? '마지막 학생입니다.' : '첫 번째 학생입니다.'); return; }
+            openSubmission(next);
+        }
+
+        async function saveGrade() {
+            if (viewingIndex === null) return;
+            const sub = submissions[viewingIndex];
+            const score = document.getElementById('grade-score').value.trim();
+            const feedback = document.getElementById('grade-feedback').value.trim();
+            const btn = document.getElementById('btn-save-grade');
+            btn.disabled = true; btn.innerText = '저장 중...';
+            try {
+                await apiPost('saveGrade', { team: getCurrentTeam(), studentId: sub.studentId, score, feedback });
+                sub.score = score; sub.feedback = feedback;
+                const opt = document.querySelector(`#select-student-submission option[value="${viewingIndex}"]`);
+                if (opt) opt.innerText = submissionLabel(sub);
+                btn.innerText = '저장됨 ✔';
+                setTimeout(() => { btn.innerText = '채점 저장'; }, 1200);
+            } catch (err) {
+                btn.innerText = '채점 저장';
+                alert(`채점을 저장하지 못했습니다.\n${networkMessage(err)}`);
+            } finally { btn.disabled = false; }
+        }
+
+        function exitViewing() {
+            viewingIndex = null; viewingResponses = {};
+            document.getElementById('grade-panel').classList.add('hidden');
+            const sel = document.getElementById('select-student-submission');
+            if (sel) sel.value = '';
+        }
+        function clearStudentViewMode() { exitViewing(); renderElements(); }
+
+        // ─────────────── 학생: 자동 저장 ───────────────
+        const draftKey = team => `worksheet_draft_team_${team}`;
+        let draftTimer = null;
+
+        function scheduleDraftSave() {
+            if (currentMode !== 'student') return;
+            clearTimeout(draftTimer);
+            const team = getCurrentTeam();
+            draftTimer = setTimeout(() => saveDraft(team), 600);
+        }
+        function saveDraft(team) {
+            const values = {};
+            teamDataStore[team].elements.forEach(el => { if (el.value) values[el.id] = el.value; });
+            const draft = {
+                sid: document.getElementById('student-id').value.trim(),
+                sname: document.getElementById('student-name').value.trim(),
+                values
+            };
+            const status = document.getElementById('draft-status');
+            try {
+                localStorage.setItem(draftKey(team), JSON.stringify(draft));
+                status.innerText = `이 기기에 자동 저장됨 (${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`;
+                status.className = 'text-[10px] text-emerald-600 text-center mt-1.5';
+            } catch {
+                status.innerText = '기기 저장 공간이 부족해 자동 저장이 멈췄습니다. 제출을 서둘러 주세요.';
+                status.className = 'text-[10px] text-red-500 text-center mt-1.5 font-bold';
+            }
+        }
+        function readDraft(team) {
+            try { return JSON.parse(localStorage.getItem(draftKey(team)) || 'null'); } catch { return null; }
+        }
+        function restoreDraft(team) {
+            const draft = readDraft(team);
+            if (!draft || !draft.values) return;
+            teamDataStore[team].elements.forEach(el => { if (draft.values[el.id]) el.value = draft.values[el.id]; });
+        }
+        function restoreStudentInfo(team) {
+            const draft = readDraft(team);
+            document.getElementById('student-id').value = draft?.sid || '';
+            document.getElementById('student-name').value = draft?.sname || '';
+        }
+        function clearDraft(team) {
+            try { localStorage.removeItem(draftKey(team)); } catch {}
+            const status = document.getElementById('draft-status');
+            status.innerText = '작성한 답은 이 기기에 자동 저장됩니다.';
+            status.className = 'text-[10px] text-slate-400 text-center mt-1.5';
+        }
+
+        // ─────────────── 학생: 제출 ───────────────
         async function submitWorksheet() {
-            let team = getCurrentTeam(); let sid = document.getElementById('student-id').value.trim(); let sname = document.getElementById('student-name').value.trim();
-            if (!sid || !sname) { alert("학번과 이름을 정확히 입력하셔야 제출이 가능합니다."); return; }
-            let elements = teamDataStore[team].elements;
-            if (elements.length === 0) { alert("제출할 문항이 없습니다."); return; }
+            const team = getCurrentTeam();
+            const sid = document.getElementById('student-id').value.trim();
+            const sname = document.getElementById('student-name').value.trim();
+            if (!/^\d{5}$/.test(sid)) { alert("학번 5자리를 숫자로 입력해 주세요. (예: 10203)"); document.getElementById('student-id').focus(); return; }
+            if (!sname) { alert("이름을 입력해 주세요."); document.getElementById('student-name').focus(); return; }
 
-            let hasEmptyField = elements.some(el => !el.value || el.value.trim() === "");
-            if (hasEmptyField) {
-                alert("⚠️ 아직 작성하지 않은 문항이 있습니다!\n\n모든 문항을 빠짐없이 채운 후 제출해 주세요.\n(정말 모르는 내용은 '모름'이라고 적어서 제출하세요.)");
+            const elements = teamDataStore[team].elements;
+            if (!elements.length) { alert("제출할 문항이 없습니다."); return; }
+
+            const empty = elements.filter(el => !el.value || !el.value.trim());
+            if (empty.length) {
+                document.querySelectorAll('.student-element.missing').forEach(w => w.classList.remove('missing'));
+                empty.forEach(el => document.querySelector(`[data-el-id="${el.id}"]`)?.classList.add('missing'));
+                document.querySelector(`[data-el-id="${empty[0].id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                alert(`⚠️ 아직 쓰지 않은 칸이 ${empty.length}개 있습니다. 빨간 테두리 칸을 채워 주세요.\n(정말 모르는 내용은 '모름'이라고 적어서 제출하세요.)`);
                 return;
             }
 
-            let btn = document.getElementById('btn-submit'); btn.disabled = true; btn.innerText = "구글 서버로 전송 중...";
+            if (!confirm(`${sid} ${sname} 학생, [${team}조] 답안을 제출할까요?`)) return;
+
+            const btn = document.getElementById('btn-submit');
+            const label = btn.querySelector('span');
+            btn.disabled = true; label.innerText = "전송 중... 화면을 닫지 마세요";
+            saveDraft(team); // 전송 실패에 대비해 한 번 더 저장
             try {
-                await fetch(getCleanUrl(), { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'text/plain' }, 
-                    body: JSON.stringify({ 
-                        action: "submitAnswers",
-                        team: team, 
-                        studentId: sid, 
-                        studentName: sname, 
-                        responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" })), 
-                        timestamp: new Date().toLocaleString() 
-                    }) 
+                const res = await apiPost('submitAnswers', {
+                    team, studentId: sid, studentName: sname,
+                    responses: elements.map(el => ({ id: el.id, type: el.type, value: el.value || "" }))
                 });
-                alert(`🎉 [${team}조] 모든 문항이 정상 작성되어 구글 시트에 답안 제출이 완료되었습니다!`);
-            } catch (err) { 
-                alert(`🎉 [${team}조] 답안이 성공적으로 연동되었습니다!`); 
-            } finally { btn.disabled = false; btn.innerText = "구글 시트로 답안 제출하기"; }
+                alert(`🎉 [${team}조] ${sname} 학생의 답안이 ${res.resubmitted ? '다시 ' : ''}제출되었습니다!`);
+                // 다음 학생이 같은 기기를 쓸 수 있도록 비움
+                elements.forEach(el => { el.value = ""; delete el._pad; });
+                document.getElementById('student-id').value = '';
+                document.getElementById('student-name').value = '';
+                clearDraft(team);
+                renderElements();
+            } catch (err) {
+                alert(`❌ 제출하지 못했습니다. 작성한 답은 이 기기에 남아 있으니 잠시 후 다시 눌러 주세요.\n\n사유: ${networkMessage(err)}`);
+            } finally {
+                btn.disabled = false; label.innerText = "답안 제출하기";
+            }
         }
     </script>
 </body>
