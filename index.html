@@ -232,8 +232,9 @@
         // ─────────────── 교사 인증 ───────────────
         async function triggerAdminAuth() {
             if (currentMode === 'teacher') return;
-            const pw = prompt("교사용 관리자 비밀번호를 입력하세요.");
-            if (pw === null || pw === '') return;
+            const input = prompt("교사용 관리자 비밀번호를 입력하세요.");
+            const pw = (input || '').trim();
+            if (!pw) return;
             const btn = document.getElementById('btn-admin');
             btn.disabled = true; btn.innerText = '확인 중...';
             try {
@@ -242,7 +243,10 @@
                 switchMode('teacher');
             } catch (err) {
                 teacherToken = null;
-                alert(err instanceof TypeError ? networkMessage(err) : "비밀번호가 일치하지 않습니다.");
+                if (err instanceof TypeError) alert(networkMessage(err));
+                else if (err.message.includes('교사 인증')) alert("비밀번호가 일치하지 않습니다.");
+                else if (err.message.includes('알 수 없는')) alert("서버가 아직 예전 코드로 실행 중입니다.\nApps Script에서 [배포 → 배포 관리 → 편집 → 새 버전]으로 다시 배포해 주세요.");
+                else alert(`교사 인증을 확인하지 못했습니다.\n사유: ${err.message}`);
             } finally { btn.disabled = false; btn.innerText = '교사모드(Admin)'; }
         }
         function exitTeacherMode() {
